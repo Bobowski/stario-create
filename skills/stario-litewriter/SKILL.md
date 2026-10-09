@@ -128,5 +128,11 @@ async def client(tmp_path, monkeypatch):
 - One `LiteWriter` per file per process. Open it in `bootstrap`. Pass it down.
 - Reads on the loop thread. Writes through `db.call`. Never hold `tx` after the function returns.
 - `:name` parameters for every outside value. No f-strings into SQL.
-- `IF NOT EXISTS` in every `SCHEMA`. A column added later gets its own `ALTER TABLE` guarded by a check of `pragma_table_info`.
+- `IF NOT EXISTS` in every `SCHEMA`. A column added later gets its own guarded `ALTER TABLE` in `bootstrap`, after `execute_script(SCHEMA)`:
+
+  ```python
+  columns = {row[0] for row in db.query("SELECT name FROM pragma_table_info('tiles')")}
+  if "label" not in columns:
+      db.execute_script("ALTER TABLE tiles ADD COLUMN label TEXT NOT NULL DEFAULT ''")
+  ```
 - `watch` for rows. `Relay` for events that are not rows.
