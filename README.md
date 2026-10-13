@@ -16,13 +16,17 @@ just dev     # http://127.0.0.1:8000, reloads on change
 just check   # lint, format, types, tests — run before done
 ```
 
-`new` creates a uv project on Python 3.14, adds `stario>=5,<6` and the dev tools, writes the feature-folder layout with one static `home` screen, vendors `static/js/datastar.js`, writes `AGENTS.md`, a `CLAUDE.md` that imports it, and a `justfile` (`dev`, `serve`, `check`, `fix`, `test`), installs the four skills into `.agents/skills/`, and runs the tests once. Without `just`, the recipes in the justfile are plain commands — run them directly.
+`new` gives you a tested, runnable app:
 
-From git instead of PyPI:
+- A uv project on Python 3.14 with `stario>=5,<6` and the dev tools.
+- The feature-folder layout with one static `home` screen.
+- `static/js/datastar.js` vendored.
+- `AGENTS.md` plus a `CLAUDE.md` that imports it.
+- The four skills installed into `.agents/skills/`.
+- A `justfile` (`dev`, `serve`, `check`, `fix`, `test`). Without `just`, the recipes are plain commands — run them directly.
+- The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
-```bash
-uvx --from git+https://github.com/bobowski/stario-create stario-create new my-app
-```
+`stario-create init` does the same inside the current directory.
 
 ## Growing an app
 
@@ -37,6 +41,8 @@ stario-create guide --write              # update it, keep '## This app'
 stario-create check                      # ruff, format, pyright, pytest
 stario-create dev                        # hot reload, no `just` needed
 ```
+
+The task commands (`dev`, `serve`, `check`, `fix`, `test`) run the same commands the justfile recipes run, so the app never depends on this tool.
 
 Every command prints JSON when stdout is piped, takes `--json` or `--text`, and writer commands take `--dry-run` and `--force`.
 
@@ -57,8 +63,8 @@ Every command prints JSON when stdout is piped, takes `--json` or `--text`, and 
 
 ## Repo layout
 
-`AGENTS.md`, `llms.txt`, and `skills/` sit at the root — `npx skills`, `stario.dev`, and repo browsing all read them there. The wheel embeds copies under `stario_create/_data/` (hatchling `force-include`), so `uvx` works without a checkout. In a checkout, the CLI reads the root files directly, so there is one canonical copy of each file.
+`AGENTS.md`, `llms.txt`, and `skills/` sit at the root. `npx skills`, `stario.dev`, and repo browsing all read them there. The wheel embeds copies under `stario_create/_data/` (hatchling `force-include`), so `uvx` works without a checkout. In a checkout the CLI reads the root files directly, so each file has one canonical copy.
 
 ## Changing the guide
 
-The guide is checked against real code. `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there, and run its tests. A code snippet in `AGENTS.md` must run as written; the package tests scaffold a project and compile every generated file, and `stario-create new` runs the new app's tests.
+The guide is checked against real code: `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there and run its tests. A snippet in `AGENTS.md` must run as written — the package tests scaffold a project and compile every generated file, and `stario-create new` runs the new app's tests.
