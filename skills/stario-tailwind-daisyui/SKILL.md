@@ -63,7 +63,7 @@ A custom theme:
 ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify  # before commit
 ```
 
-Run it next to `just dev` (or `uv run watchfiles 'uv run python -m app.main' app/ static/` without `just`). `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
+Run it next to `just dev` (or `uv run watchfiles 'python -m app.main' app/ static/` without `just`). `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
 
 ## The shell
 

@@ -17,7 +17,7 @@ One command creates a runnable app with one static screen, this file, the skills
 ```bash
 uvx stario-create new my-app
 cd my-app
-just dev    # http://127.0.0.1:8000, reloads on change (or: uv run watchfiles 'uv run python -m app.main' app/ static/)
+just dev    # http://127.0.0.1:8000, reloads on change (or: uv run watchfiles 'python -m app.main' app/ static/)
 ```
 
 `stario-create` runs `uv init --app --python 3.14`, removes the root `main.py`, adds `stario` plus the dev tools, writes the `pyproject.toml` blocks below, creates the tree in the next section with a `home` screen, vendors `static/js/datastar.js`, writes `AGENTS.md` and a `CLAUDE.md` that imports it, ignores `*.sqlite3*`, installs the four skills into `.agents/skills/`, writes the `justfile`, and runs the tests once to prove the app works.

@@ -129,7 +129,8 @@ async def client(tmp_path, monkeypatch):
 
 ## Rules
 
-- One `LiteWriter` per file per process. Open it in `bootstrap`. Pass it down.
+- One `LiteWriter` per file per process. Open it in `bootstrap`. Pass it down. The claim is an `flock` — it releases when the holder dies, so a second process that times out means the holder is still alive.
+- On dev reload the old process must die before the new one claims. Run the watcher so the app is its direct child: `uv run watchfiles 'python -m app.main' app/ static/`. A nested `uv run` inside the watched command is killed instead of the app, and the orphaned app keeps the claim — every restart then waits out `claim=` and dies with `WriterBusy`. A `WriterBusy` in dev means an orphan: find it with `lsof <db>.sqlite3-claim` and kill it.
 - Reads on the loop thread. Writes through `db.call`. Never hold `tx` after the function returns.
 - `:name` parameters for every outside value. No f-strings into SQL.
 - `IF NOT EXISTS` in every `SCHEMA`. A column added later gets its own guarded `ALTER TABLE` in `bootstrap`, after `execute_script(SCHEMA)`:

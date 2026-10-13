@@ -1,6 +1,6 @@
 # Stario
 
-Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a screen live. State lives on the server. Stario is not ASGI; run it with `python -m app.main`, or `just dev` / `uv run watchfiles 'uv run python -m app.main' app/ static/` in development.
+Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a screen live. State lives on the server. Stario is not ASGI; run it with `python -m app.main`, or `just dev` / `uv run watchfiles 'python -m app.main' app/ static/` in development.
 
 ## Start here
 

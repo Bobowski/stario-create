@@ -22,7 +22,10 @@ class Task:
 TASKS: dict[str, Task] = {
     "dev": Task(
         "run the app with hot reload",
-        (("uv", "run", "watchfiles", "uv run python -m app.main", "app/", "static/"),),
+        # `python`, not `uv run python`: the app must be watchfiles' direct
+        # child. A nested `uv run` wrapper swallows watchfiles' kill and
+        # leaves an orphan that holds the litewriter claim forever.
+        (("uv", "run", "watchfiles", "python -m app.main", "app/", "static/"),),
     ),
     "serve": Task(
         "run the app once, no reload",

@@ -218,20 +218,20 @@ def cmd_guide(args: argparse.Namespace) -> dict[str, Any]:
     bundled = guide_text()
     path = Path.cwd() / "AGENTS.md"
     if args.check:
-        head = bundled.split(_THIS_APP)[0].strip()
-        local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
+        head = bundled.split(f"\n{_THIS_APP}")[0].strip()
+        local_head = path.read_text().split(f"\n{_THIS_APP}")[0].strip() if path.exists() else ""
         return {"current": local_head == head}
     if args.write:
-        if path.exists() and _THIS_APP not in path.read_text() and not args.force:
+        if path.exists() and f"\n{_THIS_APP}" not in path.read_text() and not args.force:
             raise ScaffoldError(
                 "no-this-app",
                 "AGENTS.md has no '## This app' section",
                 "pass --force to overwrite the whole file",
             )
         if not args.dry_run:
-            if path.exists() and _THIS_APP in path.read_text():
-                tail = path.read_text().split(_THIS_APP, 1)[1]
-                path.write_text(bundled.split(_THIS_APP)[0] + _THIS_APP + tail)
+            if path.exists() and f"\n{_THIS_APP}" in path.read_text():
+                tail = path.read_text().split(f"\n{_THIS_APP}", 1)[1]
+                path.write_text(bundled.split(f"\n{_THIS_APP}")[0] + f"\n{_THIS_APP}" + tail)
             else:
                 path.write_text(bundled)
         return {"written": str(path), "dry_run": args.dry_run}
