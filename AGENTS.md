@@ -69,6 +69,7 @@ Stario does not read `.env`. Configure with environment variables; `serve` reads
 | A new screen | a new folder `app/features/<screen>/`, then `register` in `app/main.py` (skill `stario-feature`) |
 | The `<html>` document | `page(title, body)` in `app/common/shell.py` |
 | Who the user is | a signed cookie read by middleware into `c.state["user"]` (skill `stario-auth`) |
+| Which tab sent the action | a signal minted per tab — a visitor id, not a user |
 | A setting or a secret | a field on `Config` in `app/config.py`, read from the environment |
 | A stylesheet or an image | `static/`, served through `ASSETS` in `app/assets.py` (CSS at scale: skill `stario-tailwind-daisyui`) |
 | A small UI behaviour | a Datastar expression on the element: `data.on("click", "el.closest('dialog').showModal()")` |
@@ -166,7 +167,9 @@ The loop:
 4. A command validates the input, replies `w.empty()`, changes the store, publishes a notification.
 5. Every open stream wakes, reads state again, sends `render(state)`. Datastar morphs the page.
 
-Every command is a Datastar action: `data.on("click", at.post(ROUTE.href()))` or `data.on("submit", at.post(...))` on a form with `evt.preventDefault()`. Stario has no form-body parser, so a plain HTML `<form method="post">` is not used.
+The `204` means "valid request accepted" — validation always precedes it. Doing the work inline before the reply is fine when it is light; the reply does not carry the UI either way, the state change does.
+
+Every command is a Datastar action: `data.on("click", at.post(ROUTE.href()))` or `data.on("submit", at.post(...), prevent=True)` on a form. Stario has no form-body parser, so a plain HTML `<form method="post">` is not used.
 
 Notifications are `Relay` subjects: dotted strings such as `"board.changed"` or `f"room.{room_id}.message"`. `relay.publish(subject, payload)` wakes every `relay.subscribe(pattern)` whose pattern matches. `"room.*"` matches every event of every room. Define each feature's subjects as constants or small functions at the top of its `handlers.py`. A store with a watch feature can replace `Relay` for row changes (skill `stario-litewriter`). For more than one process, swap `Relay` for a broker and keep the same three routes.
 
@@ -178,7 +181,7 @@ Three kinds of bad input, three replies:
 
 A command that moves the user to another screen does not reply 204. It replies `SSE(w).navigate(ROOM.href(room.id))`. Navigation between screens by the user is a plain `<a href=...>`.
 
-Identity has two kinds. Resource identity (`room_id`, `tile_id`) lives in the URL. User identity lives in a signed cookie, verified by middleware into `c.state["user"]` (skill `stario-auth`). Neither lives in a signal.
+Identity has three kinds. Resource identity (`room_id`, `tile_id`) lives in the URL. A signed-in user lives in a signed cookie, verified by middleware into `c.state["user"]` (skill `stario-auth`). A lighter third kind is the visitor id: minted per tab, kept in `sessionStorage`, sent as a signal. It means "this open tab" — attribution for actions and for own-message highlighting, never authentication. A handler does not treat it as a user. The reference chat-room uses it for its visitors.
 
 ## Render from state
 
@@ -186,7 +189,7 @@ Each live screen has one function, `render(state) -> HtmlElement`, that returns 
 
 - The stream sends the whole document: `sse.patch_elements(render(state))`. Datastar morphs the live DOM. Compression on the open stream makes repeated HTML cheap. Do not start with small targeted patches. Narrow a patch only after you have measured a cost.
 - `render` does not fetch. The handler loads state and passes it in. State is a frozen dataclass or the rows the queries return.
-- When the page differs per viewer (own messages highlighted, own draft), `render(state, viewer)` takes the viewer too. Each stream renders for its own viewer. The viewer comes from `c.state["user"]`, never from a signal.
+- When the page differs per viewer (own messages highlighted, own draft), `render(state, viewer)` takes the viewer too. Each stream renders for its own viewer. The viewer is `c.state["user"]` for a signed-in user, or the per-tab visitor id when the app has no accounts.
 - The element that carries `data.init(...)` and `data.signals(...)` keeps the same tag and `id` in every render. Datastar morphs it in place, so the stream is not reopened. A changed tag or `id` would replace the element and reconnect.
 - The document shell is `@baked`. A baked function compiles once. Inside a baked function, a parameter is a whole child or a whole attribute value. Loops, conditions, and string formatting happen in the caller.
 - Write the HTML tree inline inside `render`. A helper view exists for a block that repeats in a loop. A helper view does not exist for one call site. Do not build a helper per element.
@@ -199,7 +202,7 @@ Signals are form input. Nothing else by default.
 - `data.bind("color")` binds an input to a signal. `await read_signals(c.req)` reads every signal on each `@get` or `@post`.
 - One `data.signals({...}, if_missing=True)` block per page, on the element that opens the stream. `if_missing=True` keeps what the user typed when the page morphs again.
 - The server never trusts a signal. Every command validates the signal and reads truth from the store.
-- Resource identity lives in the URL. User identity lives in the session cookie. A signal holds neither.
+- Resource identity lives in the URL. A signed-in user lives in the session cookie. A signal holds neither — the per-tab visitor id is the one exception, and it is never trusted as a user.
 - The stream patches HTML. It does not patch signals. One exception: after a command consumes an input, the stream or the command may reset that input with `sse.patch_signals({"message": ""})`.
 - UI state the user controls must survive a morph. A morph arrives at any moment. If it closes the dialog the user just opened, the app feels broken. Protect that state in the HTML:
   - `data.preserve_attr("open")` on `<dialog>` and `<details>`. The morph keeps the current value.
@@ -445,7 +448,7 @@ Inside a handler:
 
 - Read input first: `c.match.params`, `c.req.query`, `c.state["user"]`, `await read_signals(c.req)`.
 - Validate. Write the 4xx and `return` when the request is malformed or forbidden.
-- Reply. A command replies `w.empty()` before the work when the work is slow.
+- Reply. `w.empty()` once the input validates — the `204` means "accepted". The work may run before or after it; the stream delivers the result.
 - Change state. Publish.
 
 A subscribe handler opens the subscription before it publishes anything this connection must see. Cleanup after `async for` runs on disconnect and on shutdown.
@@ -534,9 +537,9 @@ Test the data layer directly only when a query has logic of its own. The `client
 | `url_for(...)` | `ROUTE.href(...)` |
 | `bootstrap` without `yield` | One async generator with one `yield` |
 | A command that returns HTML | A command that replies 204 and publishes |
-| `<form method="post">` | `data.on("submit", at.post(...))` and `evt.preventDefault()` |
+| `<form method="post">` | `data.on("submit", at.post(...), prevent=True)` |
 | `patch_elements(fragment, selector=...)` as the first version | `patch_elements(render(state))` for the whole document |
-| A signal that holds a row, a list, an id, or a user | The row in the store, the id in the URL, the user in the cookie |
+| A signal that holds a row, a list, an id, or a signed-in user | The row in the store, the id in the URL, the user in the cookie |
 | `{"open": True}` rendered for a user-opened dialog | `data.preserve_attr("open")` |
 | A `.js` file for a click | `data.on("click", "...")` on the element |
 | `Writer.alive(...)` | `c.alive(...)` |

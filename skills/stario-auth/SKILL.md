@@ -208,7 +208,7 @@ def render(*, error: str = "") -> HtmlElement:
             {"id": "login"},
             data.signals({"email": "", "password": ""}, if_missing=True),
             h.Form(
-                data.on("submit", f"evt.preventDefault(); {at.post(LOGIN_POST.href())}"),
+                data.on("submit", at.post(LOGIN_POST.href()), prevent=True),
                 h.Label(
                     "Email",
                     h.Input({"type": "email", "autocomplete": "username"}, data.bind("email")),
@@ -290,7 +290,7 @@ A sign-up screen is the same shape with `data.add_user(conn, str(uuid.uuid7()), 
 ## A logout button on any screen
 
 ```python
-h.Button(data.on("click", at.post(LOGOUT.href())), "Sign out")
+h.Button({"type": "button"}, data.on("click", at.post(LOGOUT.href())), "Sign out")
 ```
 
 ## Tests
