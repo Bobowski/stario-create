@@ -1,0 +1,20 @@
+from stario import h
+from stario.datastar import ModuleScript
+from stario.markup import HtmlElement, baked
+
+from app.assets import DATASTAR_JS, STYLE_CSS
+
+
+@baked
+def page(title: str, body: HtmlElement) -> HtmlElement:
+    return h.HtmlDocument(
+        {"lang": "en"},
+        h.Head(
+            h.Meta({"charset": "utf-8"}),
+            h.Meta({"name": "viewport", "content": "width=device-width, initial-scale=1"}),
+            h.Title(title),
+            h.Link({"rel": "stylesheet", "href": STYLE_CSS}),
+            ModuleScript(DATASTAR_JS),
+        ),
+        h.Body(body),
+    )

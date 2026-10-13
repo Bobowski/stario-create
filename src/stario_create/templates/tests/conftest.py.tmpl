@@ -1,0 +1,11 @@
+import pytest
+from stario.testing import TestClient
+
+from app.main import bootstrap
+
+
+@pytest.fixture
+async def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "app.sqlite3"))
+    async with TestClient(bootstrap) as c:
+        yield c

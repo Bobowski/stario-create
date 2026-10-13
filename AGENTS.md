@@ -4,31 +4,32 @@ This file teaches a person or an agent how to build a Stario app. It sits at the
 
 - Docs: https://stario.dev/docs
 - Deeper context: https://stario.dev/llms-full.txt
-- Skills (SQLite, auth, Tailwind, adding a screen): `npx skills add bobowski/stario-skills` or https://stario.dev/skills/
+- Skills (SQLite, auth, Tailwind, adding a screen): `.agents/skills/` in this repo, or `npx skills add bobowski/stario-create`
 - Reference app: https://github.com/bobowski/stario/tree/main/examples/chat-room
-- This file and the skills: https://github.com/bobowski/stario-skills
+- This file, the skills, and the project CLI: https://github.com/bobowski/stario-create
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs the page in the browser. A long-lived SSE stream keeps a page live. State lives on the server. Each screen is a full document, and a plain link moves between screens.
 
 ## Start a project
 
-One command creates a runnable app with one static screen, this file, and the skills:
+One command creates a runnable app with one static screen, this file, the skills, and a `justfile` of dev tasks:
 
 ```bash
-curl -fsSL https://stario.dev/setup.sh | sh -s -- my-app
+uvx stario-create new my-app
 cd my-app
-uv run stario watch app.main:bootstrap   # http://127.0.0.1:8000, reloads on change
+just dev    # http://127.0.0.1:8000, reloads on change (or: uv run watchfiles 'uv run python -m app.main' app/ static/)
 ```
 
-The script runs `uv init --app --python 3.14`, removes the root `main.py`, adds `stario` plus the dev tools, writes the `pyproject.toml` blocks below, creates the tree in the next section with a `home` screen, vendors `static/js/datastar.js`, writes `AGENTS.md` and a `CLAUDE.md` that imports it, ignores `*.sqlite3*`, and downloads the four skills into `.agents/skills/`.
+`stario-create` runs `uv init --app --python 3.14`, removes the root `main.py`, adds `stario` plus the dev tools, writes the `pyproject.toml` blocks below, creates the tree in the next section with a `home` screen, vendors `static/js/datastar.js`, writes `AGENTS.md` and a `CLAUDE.md` that imports it, ignores `*.sqlite3*`, installs the four skills into `.agents/skills/`, writes the `justfile`, and runs the tests once to prove the app works.
 
-Without the script, do the same by hand. The `pyproject.toml` needs these blocks:
+Without the CLI, do the same by hand. The `pyproject.toml` needs these blocks:
 
 ```toml
 [tool.ruff]
 target-version = "py314"
 line-length = 100
 src = ["app", "tests"]
+extend-exclude = [".agents", ".claude", ".cursor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
@@ -46,15 +47,16 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 ```
 
-Check before you call work done:
+Check before you call work done — `just check`, or `stario-create check`, or the four steps:
 
 ```bash
-uv run ruff check . && uv run ruff format .
+uv run ruff check .
+uv run ruff format --check .
 uv run pyright
 uv run pytest
 ```
 
-Stario does not read `.env`. Configure with environment variables. `STARIO_PORT` changes the port.
+Stario does not read `.env`. Configure with environment variables; `serve` reads `STARIO_*` through `ServerConfig.from_env()`. `STARIO_PORT` changes the port.
 
 ## Where does it go
 
@@ -96,6 +98,7 @@ static/
 tests/
   conftest.py         TestClient(bootstrap) fixture
   test_<screen>.py    one file per screen
+justfile              dev tasks: just dev, just check, just test
 AGENTS.md             this file
 CLAUDE.md             one line: @AGENTS.md
 .agents/skills/       installed skills
@@ -114,15 +117,14 @@ Rules for the tree:
 
 ## Stario invariants
 
-Stario is not ASGI. Do not mount it in Uvicorn, Hypercorn, FastAPI, or Starlette. Do not return response objects. Run with a bootstrap spec: `stario watch app.main:bootstrap`.
+Stario is not ASGI. Do not mount it in Uvicorn, Hypercorn, FastAPI, or Starlette. Do not return response objects. Run the module: `python -m app.main`. `app/main.py` ends with `if __name__ == "__main__": asyncio.run(serve(bootstrap))`.
 
 Default imports:
 
 ```python
-from stario import App, Context, HttpException, Relay, Route, Span, Writer, responses
+from stario import App, Context, Relay, Route, Span, Writer, h
 from stario.datastar import SSE, at, data, read_signals
 from stario.markup import HtmlElement, baked, classes
-from stario.markup import html as h
 ```
 
 Import order in every file: standard library, then third-party (`stario`, `pytest`), then `app`. The `I` rule in `ruff` enforces it.
@@ -130,21 +132,22 @@ Import order in every file: standard library, then third-party (`stario`, `pytes
 Rules:
 
 - `bootstrap` is `async def bootstrap(app: App, span: Span)` with exactly one `yield`. Build dependencies, attach assets, and register routes before `yield`. Clean up after `yield`.
-- A handler is `async def handler(c: Context, w: Writer) -> None`. It completes the response through `responses.html`, `responses.empty`, `responses.redirect`, or `SSE(w)`. It completes the response once.
+- A handler is `async def handler(c: Context, w: Writer) -> None`. It completes the response through `w.html`, `w.empty`, `w.redirect`, or `SSE(w)`. It completes the response once.
 - A `Route` is one method on one path: `Route("GET /rooms/{room_id}")` or `Route("POST", ROOM_PATH + "/send")`. Register with `app.add(route, handler)`. Build links with `route.href(room_id)` or `route.href(room_id=x)`. There is no `url_for`.
 - `c.match.params["room_id"]` reads a path capture. `c.req.query` reads the query string. `c.req.cookies` reads cookies. `c.state` is a per-request dict that middleware fills.
-- Middleware is `(inner: Handler) -> Handler`. `app.use("/prefix", middleware)` applies it to every route under the prefix. Register it before those routes.
+- Middleware is `(inner: Handler) -> Handler`. `app.use("/prefix", middleware)` applies it to every route under the prefix, including the 404/405 answers. `app.use` and `app.add` work in any order; the router composes middleware when the app compiles.
 - A long-lived loop iterates `c.alive(source)`. The loop ends on disconnect or shutdown. Cleanup after the loop always runs.
 - Background work uses `c.app.create_task(...)`, not bare `asyncio.create_task`.
-- Raise `HttpException(400, "message")` for a malformed request. Raise `HttpException(404, "message")` for a missing row. Raise `HttpException(403, "message")` for a user who may not do this.
-- Framework JSON goes through `stario.json`. Do not call `json.dumps` for signals or responses.
+- Write the 4xx and `return` for a malformed request: `w.text("message", status=400)`. A missing row gets `status=404`. A user who may not do this gets `status=403`.
+- An exception type that maps to one response everywhere is declared once and mapped with `catch_errors`: `app.use("/", catch_errors(MyError, respond=responder))`. `responder` is `async def responder(c, w, exc)`; import `catch_errors` from `stario.http.middleware`.
+- Framework JSON goes through `stario.json`. Do not call `json.dumps` for signal or response data.
 - Stario runs on one event loop in one process. Shared state is a plain object passed into the feature. No globals.
 
 ## The default architecture
 
 Decide per screen:
 
-- A screen with no action is a static page. One `GET` handler. `responses.html(w, render(state))`. Done.
+- A screen with no action is a static page. One `GET` handler. `w.html(render(state))`. Done.
 - A screen with any action is live. Three kinds of routes. This is CQRS over HTTP.
 
 ```text
@@ -160,7 +163,7 @@ The loop:
 1. `GET /board` renders `render(state)`.
 2. The page opens `GET /board/live` on load with `retry="always"`. One stream per page.
 3. The stream sends `render(state)` once, then waits for a notification.
-4. A command validates the input, replies `responses.empty(w)`, changes the store, publishes a notification.
+4. A command validates the input, replies `w.empty()`, changes the store, publishes a notification.
 5. Every open stream wakes, reads state again, sends `render(state)`. Datastar morphs the page.
 
 Every command is a Datastar action: `data.on("click", at.post(ROUTE.href()))` or `data.on("submit", at.post(...))` on a form with `evt.preventDefault()`. Stario has no form-body parser, so a plain HTML `<form method="post">` is not used.
@@ -171,7 +174,7 @@ Three kinds of bad input, three replies:
 
 - Honest but empty or unchanged input (blank title, same color): reply `204` and do nothing.
 - A domain conflict (name taken, room full): write the outcome to state, publish, and let `render` show the message. Failure is a view of state.
-- Malformed or forged input (bad color format, unknown id, another user's row): `raise HttpException(400 | 404 | 403, ...)`. A real client never sends it.
+- Malformed or forged input (bad color format, unknown id, another user's row): write the 4xx and `return` — `w.text("why", status=400)`. A real client never sends it. Many handlers with one error shape declare an exception type and map it once with `catch_errors`.
 
 A command that moves the user to another screen does not reply 204. It replies `SSE(w).navigate(ROOM.href(room.id))`. Navigation between screens by the user is a plain `<a href=...>`.
 
@@ -193,7 +196,7 @@ Each live screen has one function, `render(state) -> HtmlElement`, that returns 
 
 Signals are form input. Nothing else by default.
 
-- `data.bind("color")` binds an input to a signal. `read_signals(c.req)` reads every signal on each `@get` or `@post`.
+- `data.bind("color")` binds an input to a signal. `await read_signals(c.req)` reads every signal on each `@get` or `@post`.
 - One `data.signals({...}, if_missing=True)` block per page, on the element that opens the stream. `if_missing=True` keeps what the user typed when the page morphs again.
 - The server never trusts a signal. Every command validates the signal and reads truth from the store.
 - Resource identity lives in the URL. User identity lives in the session cookie. A signal holds neither.
@@ -239,9 +242,9 @@ DATASTAR_JS = ASSETS.href("js/datastar.js")
 `app/common/shell.py`:
 
 ```python
+from stario import h
 from stario.datastar import ModuleScript
 from stario.markup import HtmlElement, baked
-from stario.markup import html as h
 
 from app.assets import DATASTAR_JS, STYLE_CSS
 
@@ -305,9 +308,9 @@ def set_color(conn: sqlite3.Connection, tile_id: int, color: str) -> None:
 `app/features/board/views.py`:
 
 ```python
+from stario import h
 from stario.datastar import at, data
 from stario.markup import HtmlElement, classes
-from stario.markup import html as h
 
 from app.common.shell import page
 from app.features.board.data import Tile
@@ -342,7 +345,7 @@ def render(tiles: list[Tile]) -> HtmlElement:
 import re
 import sqlite3
 
-from stario import App, Context, HttpException, Relay, Writer, responses
+from stario import App, Context, Relay, Writer
 from stario.datastar import SSE, read_signals
 
 from app.features.board import data
@@ -352,47 +355,56 @@ from app.features.board.views import render
 CHANGED = "board.changed"
 
 
-class Board:
-    def __init__(self, conn: sqlite3.Connection, relay: Relay[str]) -> None:
-        self.conn = conn
-        self.relay = relay
+def show_board(conn: sqlite3.Connection):
+    async def handler(c: Context, w: Writer) -> None:
+        w.html(render(data.list_tiles(conn)))
 
-    async def show(self, c: Context, w: Writer) -> None:
-        responses.html(w, render(data.list_tiles(self.conn)))
+    return handler
 
-    async def live(self, c: Context, w: Writer) -> None:
-        async with self.relay.subscribe(CHANGED) as events:
+
+def board_live(conn: sqlite3.Connection, relay: Relay[str]):
+    async def handler(c: Context, w: Writer) -> None:
+        async with relay.subscribe(CHANGED) as events:
             sse = SSE(w)
-            sse.patch_elements(render(data.list_tiles(self.conn)))
+            sse.patch_elements(render(data.list_tiles(conn)))
             async for _ in c.alive(events):
-                sse.patch_elements(render(data.list_tiles(self.conn)))
+                sse.patch_elements(render(data.list_tiles(conn)))
 
-    async def paint(self, c: Context, w: Writer) -> None:
+    return handler
+
+
+def paint_tile(conn: sqlite3.Connection, relay: Relay[str]):
+    async def handler(c: Context, w: Writer) -> None:
         signals = await read_signals(c.req)
         color = str(signals.get("color", ""))
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
-            raise HttpException(400, "Color must be #rrggbb")
-        responses.empty(w)
-        data.set_color(self.conn, int(c.match.params["tile_id"]), color)
-        self.relay.publish(CHANGED, "paint")
+            w.text("Color must be #rrggbb", status=400)
+            return
+        w.empty()
+        data.set_color(conn, int(c.match.params["tile_id"]), color)
+        relay.publish(CHANGED, "paint")
 
-    def register(self, app: App) -> None:
-        app.add(BOARD, self.show)
-        app.add(BOARD_LIVE, self.live)
-        app.add(PAINT, self.paint)
+    return handler
+
+
+def register_board(app: App, conn: sqlite3.Connection, relay: Relay[str]) -> None:
+    app.add(BOARD, show_board(conn))
+    app.add(BOARD_LIVE, board_live(conn, relay))
+    app.add(PAINT, paint_tile(conn, relay))
 ```
 
 `app/main.py`:
 
 ```python
+import asyncio
 import sqlite3
 
-from stario import App, Relay, Span
+from stario import App, Relay, Span, serve
 
 from app.assets import ASSETS
 from app.config import Config
 from app.features.board import data as board_data
-from app.features.board.handlers import Board
+from app.features.board.handlers import register_board
 
 
 async def bootstrap(app: App, span: Span):
@@ -402,23 +414,25 @@ async def bootstrap(app: App, span: Span):
     relay: Relay[str] = Relay()
 
     span.attrs(await ASSETS.attach(app))
-    Board(conn, relay).register(app)
+    register_board(app, conn, relay)
     yield
     conn.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(serve(bootstrap))
 ```
 
 Note the two names called `data`. In `handlers.py`, `data` is the feature's `data.py`. In `views.py`, `data` is `stario.datastar.data`. They do not meet in one file.
 
 ## Handlers
 
-Two shapes. Pick by size.
-
-Up to three handlers with different dependencies: a factory per handler. A static screen is this shape.
+One shape, whatever the count: a factory per handler, and one `register_<screen>(app, deps)` that adds every route in one place. The factory takes the dependencies the handler needs; the register function takes them all. A static screen's factory may take a config value; a live screen's factories take `conn` and `relay`. Do not wrap handlers in a class.
 
 ```python
 def show_about(version: str):
     async def handler(c: Context, w: Writer) -> None:
-        responses.html(w, render(version))
+        w.html(render(version))
 
     return handler
 
@@ -427,13 +441,11 @@ def register_about(app: App, version: str) -> None:
     app.add(ABOUT, show_about(version))
 ```
 
-Four or more handlers, or a stream plus commands sharing `db` and `relay`: one class. `__init__` takes the dependencies. Each handler is a method. `register(app)` adds the routes. Every handler stays reachable by name, which a test or another feature can use.
-
 Inside a handler:
 
 - Read input first: `c.match.params`, `c.req.query`, `c.state["user"]`, `await read_signals(c.req)`.
-- Validate. Raise `HttpException` when the request is malformed or forbidden.
-- Reply. A command replies `responses.empty(w)` before the work when the work is slow.
+- Validate. Write the 4xx and `return` when the request is malformed or forbidden.
+- Reply. A command replies `w.empty()` before the work when the work is slow.
 - Change state. Publish.
 
 A subscribe handler opens the subscription before it publishes anything this connection must see. Cleanup after `async for` runs on disconnect and on shutdown.
@@ -442,7 +454,7 @@ A subscribe handler opens the subscription before it publishes anything this con
 
 Fewer functions, not thinner ones. The work lives where you can read it.
 
-- Inline a function whose body is one call: `return other(...)`, one `sse.patch_elements(...)`, one `responses.html(...)`.
+- Inline a function whose body is one call: `return other(...)`, one `sse.patch_elements(...)`, one `w.html(...)`.
 - Inline a private alias that exists to rename a call.
 - Do not extract a helper because a line is long. Do not extract a helper for one call site.
 - Keep a function when it has two or more call sites, when it is a loop body, or when it does I/O you want to test alone. Branches alone do not earn a name. One call site inlines, branches included.
@@ -453,7 +465,7 @@ Fewer functions, not thinner ones. The work lives where you can read it.
 
 ## Tests
 
-Tests run against the production `bootstrap` through `TestClient`. There is no second composition root.
+Tests run against the production `bootstrap` through `TestClient`, which speaks the real HTTP protocol on an in-memory transport. There is no second composition root.
 
 `tests/conftest.py`:
 
@@ -517,7 +529,7 @@ Test the data layer directly only when a query has logic of its own. The `client
 | --- | --- |
 | Flat `app/routes.py`, `app/handlers.py` | `app/features/<screen>/` from the first commit |
 | A folder named after a layer (`app/views/`) | A folder named after a screen (`app/features/settings/`) |
-| FastAPI, Starlette, ASGI response objects | `App`, `Route`, `Context`, `Writer`, `responses.*` |
+| FastAPI, Starlette, ASGI response objects | `App`, `Route`, `Context`, `Writer` (`w.html`, `w.empty`, `w.redirect`) |
 | `app.get(path, handler)` | `Route("GET /path")` and `app.add(route, handler)` |
 | `url_for(...)` | `ROUTE.href(...)` |
 | `bootstrap` without `yield` | One async generator with one `yield` |
@@ -529,7 +541,7 @@ Test the data layer directly only when a query has logic of its own. The `client
 | A `.js` file for a click | `data.on("click", "...")` on the element |
 | `Writer.alive(...)` | `c.alive(...)` |
 | Bare `asyncio.create_task(...)` | `c.app.create_task(...)` |
-| `json.dumps` for signals | `stario.json` through `SSE` and `responses.json` |
+| `json.dumps` for signals | `stario.json` through `SSE` and `w.json` |
 | A helper function per element | One `render` with the tree written inline |
 | Shared `components.py` across features on day one | Each feature keeps its own HTML; merge after it proves stable |
 | A second bootstrap for tests | `TestClient(bootstrap)` |
@@ -544,13 +556,13 @@ Each of these has a home. Do not invent a pattern; read the source named here.
 - Tailwind and DaisyUI without Node: skill `stario-tailwind-daisyui`.
 - Adding or removing a screen, step by step: skill `stario-feature`.
 - File uploads and user files: https://stario.dev/docs/how-tos/user-uploads-and-storage
-- Error pages and `on_error`: https://stario.dev/docs/how-tos/error-handlers
+- Error pages and `app.not_found`: https://stario.dev/docs/how-tos/error-handlers
 - Deployment, containers, TLS: https://stario.dev/docs/how-tos/deployment-containers-and-tls
-- Telemetry and the SQLite tracer: https://stario.dev/docs/how-tos/insights-from-sqlite-tracer
+- Telemetry and the SQLite tracer: https://stario.dev/docs/how-tos/traces-in-sqlite
 - Datastar attribute reference: https://data-star.dev
 
-Install the skills with `npx skills add bobowski/stario-skills`. Without Node, copy a `skills/<name>/` folder from https://github.com/bobowski/stario-skills into `.agents/skills/`.
+Install the skills with `stario-create skills install`, or `npx skills add bobowski/stario-create`, or copy a `skills/<name>/` folder from https://github.com/bobowski/stario-create into `.agents/skills/`.
 
 ## This app
 
-Notes for this app go below this line. The text above is the Stario guide. Replace it with a newer copy from https://stario.dev/AGENTS.md when Stario updates, and keep this section.
+Notes for this app go below this line. The text above is the Stario guide. `stario-create guide --check` tells you when it is stale; `stario-create guide --write` replaces the text above this section and keeps your notes.

@@ -38,14 +38,14 @@ Answer three questions:
 
 3. `views.py`: one `render(state)` that returns the full document. On the element that holds the content: `data.signals({...}, if_missing=True)` for the inputs, and `data.init(at.get(SETTINGS_LIVE.href(), retry="always"))`. Each command button: `data.on("click", at.post(SET_THEME.href()))`. Each input: `data.bind("name")`. Protect user-controlled UI state with `data.preserve_attr("open")`.
 
-4. `handlers.py`: one class with `__init__(deps)`, `show`, `live`, one method per command, and `register(app)`.
+4. `handlers.py`: a factory per handler (`show_<screen>`, `<screen>_live`, one per command), and `register_<screen>(app, conn, relay)` that adds every route.
 
-   - `show`: load state, `responses.html(w, render(state))`.
-   - `live`: `async with relay.subscribe(SUBJECT) as events:`, `sse = SSE(w)`, send `render(state)` once, then `async for _ in c.alive(events):` send `render(state)` again.
-   - A command: `read_signals`, validate, `raise HttpException(400, ...)` when malformed, `responses.empty(w)`, change the store, `relay.publish(SUBJECT, "what")`.
-   - A command that moves the user: `SSE(w).navigate(OTHER.href(...))` from an `at.post` action, or `responses.redirect(w, OTHER.href(...), 303)` from a plain form `POST`.
+   - `show_<screen>`: load state, `w.html(render(state))`.
+   - `<screen>_live`: `async with relay.subscribe(SUBJECT) as events:`, `sse = SSE(w)`, send `render(state)` once, then `async for _ in c.alive(events):` send `render(state)` again.
+   - A command: `await read_signals(c.req)`, validate, `w.text("why", status=400)` and `return` when malformed, `w.empty()`, change the store, `relay.publish(SUBJECT, "what")`.
+   - A command that moves the user: `SSE(w).navigate(OTHER.href(...))`. A `w.redirect(url, status=303)` instead morphs the target page in place without changing the URL — use it only when that is the intent.
 
-5. `app/main.py`: build the dependency if new (schema applied once), then `Screen(deps).register(app)`.
+5. `app/main.py`: build the dependency if new (schema applied once), then `register_<screen>(app, conn, relay)`.
 
 6. `tests/test_<screen>.py`: the page loads; one command repaints the stream; one malformed command returns `400`. Use the test shape from `AGENTS.md`.
 

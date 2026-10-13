@@ -1,0 +1,18 @@
+import asyncio
+
+from stario import App, Span, serve
+
+from app.assets import ASSETS
+from app.config import Config
+from app.features.home.handlers import register_home
+
+
+async def bootstrap(app: App, span: Span):
+    config = Config.from_env()
+    span.attrs(await ASSETS.attach(app))
+    register_home(app, config.app_name)
+    yield
+
+
+if __name__ == "__main__":
+    asyncio.run(serve(bootstrap))

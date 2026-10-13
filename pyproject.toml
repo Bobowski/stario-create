@@ -1,0 +1,79 @@
+[project]
+name = "stario-create"
+version = "5.0.0"
+description = "Create and grow Stario apps: scaffold, screens, skills, dev tasks."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+authors = [
+    { name = "Adam Bobowski", email = "adam.bobowski@wratilabs.com" }
+]
+keywords = ["stario", "scaffold", "cli", "agents", "skills"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://stario.dev"
+Repository = "https://github.com/bobowski/stario-create"
+Issues = "https://github.com/bobowski/stario-create/issues"
+
+[project.scripts]
+stario-create = "stario_create.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/stario_create"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"AGENTS.md" = "stario_create/_data/AGENTS.md"
+"llms.txt" = "stario_create/_data/llms.txt"
+"setup.sh" = "stario_create/_data/setup.sh"
+"skills" = "stario_create/_data/skills"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.403",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.12.8",
+    "stario",
+    "watchfiles>=1.1",
+]
+
+# No source override for `stario` here. Inside the Mono workspace the root
+# [tool.uv.sources] maps it to the workspace member; a standalone clone or a
+# uvx build resolves it from the index.
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["src", "tests"]
+strict = ["src"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "SIM", "RUF", "PT"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["stario_create", "tests"]

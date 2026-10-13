@@ -1,0 +1,11 @@
+from stario import h
+from stario.markup import HtmlElement
+
+from app.common.shell import page
+
+
+def render() -> HtmlElement:
+    return page(
+        "$title",
+        h.Main({"id": "$screen"}, h.H1("$title")),
+    )

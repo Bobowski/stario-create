@@ -5,7 +5,7 @@ description: SQLite in a Stario app through litewriter (one writer thread, group
 
 # SQLite with litewriter
 
-`litewriter` is the default store for a Stario app. One SQLite file. One writer thread. Reads from any thread on their own connection. `watch` wakes a stream when a commit changes the rows it reads. It needs CPython 3.14.
+`litewriter` is the store for a Stario app when plain `sqlite3` is not enough. One SQLite file. One writer thread. Reads from any thread on their own connection. `watch` wakes a stream when a commit changes the rows it reads. It needs CPython 3.14.
 
 ```bash
 uv add litewriter
@@ -19,9 +19,10 @@ Source and full reference: https://github.com/Bobowski/litewriter
 from litewriter import LiteWriter
 from stario import App, Span
 
+from app.assets import ASSETS
 from app.config import Config
 from app.features.board import data as board_data
-from app.features.board.handlers import Board
+from app.features.board.handlers import register_board
 
 
 async def bootstrap(app: App, span: Span):
@@ -29,13 +30,13 @@ async def bootstrap(app: App, span: Span):
     async with LiteWriter(config.db_path, claim=30) as db:
         db.execute_script(board_data.SCHEMA)
         span.attrs(await ASSETS.attach(app))
-        Board(db).register(app)
+        register_board(app, db)
         yield
 ```
 
 `async with` claims the file, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then fail, so two servers never write one file. `execute_script` runs DDL. Every `SCHEMA` statement is `CREATE TABLE IF NOT EXISTS`, so a restart is safe.
 
-There is no `app/db.py`. Pass `db` into each feature class.
+There is no `app/db.py`. Pass `db` into each feature's `register` function.
 
 ## Reads
 
@@ -92,11 +93,14 @@ Put the write functions in the feature's `data.py` next to the queries. `tx.valu
 `watch` replaces `Relay` when the state lives in the file. The first read is the rows now. Each later read comes after a commit that changed them. Equal rows do not wake.
 
 ```python
-async def live(self, c: Context, w: Writer) -> None:
-    sse = SSE(w)
-    async with self.db.watch(TILES) as rows:
-        async for tiles in c.alive(rows):
-            sse.patch_elements(render([Tile(*row) for row in tiles]))
+def board_live(db: LiteWriter):
+    async def handler(c: Context, w: Writer) -> None:
+        sse = SSE(w)
+        async with db.watch(TILES) as rows:
+            async for tiles in c.alive(rows):
+                sse.patch_elements(render([Tile(*row) for row in tiles]))
+
+    return handler
 ```
 
 A command then has no publish step. It validates, replies `204`, and calls `db.call`. The commit wakes every open stream that reads those rows.

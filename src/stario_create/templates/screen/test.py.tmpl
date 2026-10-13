@@ -1,0 +1,7 @@
+from app.features.$screen.urls import $SCREEN
+
+
+async def test_${screen}_loads(client):
+    r = await client.get($SCREEN.href())
+    assert r.status_code == 200
+    assert 'id="$screen"' in r.text

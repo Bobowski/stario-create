@@ -1,0 +1,15 @@
+from stario import App, Context, Writer
+
+from app.features.home.urls import HOME
+from app.features.home.views import render
+
+
+def show_home(app_name: str):
+    async def handler(c: Context, w: Writer) -> None:
+        w.html(render(app_name))
+
+    return handler
+
+
+def register_home(app: App, app_name: str) -> None:
+    app.add(HOME, show_home(app_name))

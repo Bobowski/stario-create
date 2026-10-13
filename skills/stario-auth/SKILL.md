@@ -21,7 +21,7 @@ import secrets
 import time
 from dataclasses import dataclass
 
-from stario import Context, Handler, Middleware, Writer, responses
+from stario import Context, Handler, Middleware, Writer
 from stario.cookies import delete_cookie, set_cookie
 from stario.datastar import SSE
 
@@ -80,7 +80,7 @@ class Session:
                     if c.req.headers.get("datastar-request"):
                         SSE(w).navigate(login_url)
                     else:
-                        responses.redirect(w, login_url, 303)
+                        w.redirect(login_url, status=303)
                     return
                 await inner(c, w)
 
@@ -121,7 +121,7 @@ class Config:
         )
 ```
 
-Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Export it in the shell for `stario watch`. Set it in `tests/conftest.py` with `monkeypatch.setenv`.
+Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Export it in the shell that runs `python -m app.main`. Set it in `tests/conftest.py` with `monkeypatch.setenv`.
 
 ## Wire it in `bootstrap`
 
@@ -131,11 +131,11 @@ Protected screens share one URL prefix, `/app`. Public screens (`/`, `/login`) s
 session = Session(secret=config.session_secret, secure=not config.dev)
 app.use("/", session.attach())
 app.use("/app", session.require(LOGIN.href()))
-Login(conn, session).register(app)
-Board(conn, relay).register(app)   # its routes start with /app/board
+register_login(app, conn, session)
+register_board(app, conn, relay)  # its routes start with /app/board
 ```
 
-`app.use("/", ...)` runs before every route, so `c.state["user"]` is always set. `app.use("/app", ...)` runs before every route under `/app`. Both `app.use` calls come before `ASSETS.attach(app)` and before the `register` calls. Stario rejects a middleware registered after a route it would match, and `attach` registers `/static/...` routes.
+`app.use("/", ...)` runs before every route, so `c.state["user"]` is always set. `app.use("/app", ...)` runs before every route under `/app`, including the 404/405 answers. `app.use` and `app.add` work in any order; the router composes middleware when the app compiles.
 
 Seed the first user in `bootstrap`, after the schema and before `yield`:
 
@@ -193,9 +193,9 @@ def add_user(conn: sqlite3.Connection, user_id: str, email: str, password_hash: 
 `views.py`:
 
 ```python
+from stario import h
 from stario.datastar import at, data
 from stario.markup import HtmlElement
-from stario.markup import html as h
 
 from app.common.shell import page
 from app.features.login.urls import LOGIN_POST
@@ -232,7 +232,7 @@ def render(*, error: str = "") -> HtmlElement:
 ```python
 import sqlite3
 
-from stario import App, Context, Writer, responses
+from stario import App, Context, Writer
 from stario.datastar import SSE, read_signals
 
 from app.common.session import Session, check_password
@@ -242,38 +242,45 @@ from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
 from app.features.login.views import render
 
 
-class Login:
-    def __init__(self, conn: sqlite3.Connection, session: Session) -> None:
-        self.conn = conn
-        self.session = session
-
-    async def show(self, c: Context, w: Writer) -> None:
+def show_login(session: Session):
+    async def handler(c: Context, w: Writer) -> None:
         if c.state.get("user"):
-            responses.redirect(w, HOME.href(), 303)
+            w.redirect(HOME.href(), status=303)
             return
-        responses.html(w, render())
+        w.html(render())
 
-    async def submit(self, c: Context, w: Writer) -> None:
+    return handler
+
+
+def submit_login(conn: sqlite3.Connection, session: Session):
+    async def handler(c: Context, w: Writer) -> None:
         signals = await read_signals(c.req)
         email = str(signals.get("email", "")).strip().lower()
         password = str(signals.get("password", ""))
-        row = data.get_user_by_email(self.conn, email)
+        row = data.get_user_by_email(conn, email)
         sse = SSE(w)
         if row is None or not check_password(password, row[1]):
             sse.patch_elements(render(error="Wrong email or password."))
             sse.patch_signals({"password": ""})
             return
-        self.session.issue(w, row[0])
+        session.issue(w, row[0])
         sse.navigate(HOME.href())
 
-    async def logout(self, c: Context, w: Writer) -> None:
-        self.session.clear(w)
+    return handler
+
+
+def logout(session: Session):
+    async def handler(c: Context, w: Writer) -> None:
+        session.clear(w)
         SSE(w).navigate(LOGIN.href())
 
-    def register(self, app: App) -> None:
-        app.add(LOGIN, self.show)
-        app.add(LOGIN_POST, self.submit)
-        app.add(LOGOUT, self.logout)
+    return handler
+
+
+def register_login(app: App, conn: sqlite3.Connection, session: Session) -> None:
+    app.add(LOGIN, show_login(session))
+    app.add(LOGIN_POST, submit_login(conn, session))
+    app.add(LOGOUT, logout(session))
 ```
 
 `Set-Cookie` headers go out with the first write, so `issue` and `clear` are called before `navigate`.

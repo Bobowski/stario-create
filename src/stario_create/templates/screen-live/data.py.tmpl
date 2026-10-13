@@ -1,0 +1,25 @@
+import sqlite3
+from dataclasses import dataclass
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS $screen (
+    id INTEGER PRIMARY KEY,
+    body TEXT NOT NULL
+);
+"""
+
+
+@dataclass(frozen=True, slots=True)
+class ${Screen}Row:
+    id: int
+    body: str
+
+
+def list_${screen}(conn: sqlite3.Connection) -> list[${Screen}Row]:
+    rows = conn.execute("SELECT id, body FROM $screen ORDER BY id").fetchall()
+    return [${Screen}Row(*row) for row in rows]
+
+
+def add_${screen}(conn: sqlite3.Connection, body: str) -> None:
+    with conn:
+        conn.execute("INSERT INTO $screen (body) VALUES (?)", (body,))

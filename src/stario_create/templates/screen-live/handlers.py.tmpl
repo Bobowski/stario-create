@@ -1,0 +1,46 @@
+import sqlite3
+
+from stario import App, Context, Relay, Writer
+from stario.datastar import SSE, read_signals
+
+from app.features.$screen import data
+from app.features.$screen.urls import $SCREEN, ${SCREEN}_ADD, ${SCREEN}_LIVE
+from app.features.$screen.views import render
+
+CHANGED = "$screen.changed"
+
+
+def show_$screen(conn: sqlite3.Connection):
+    async def handler(c: Context, w: Writer) -> None:
+        w.html(render(data.list_${screen}(conn)))
+
+    return handler
+
+
+def ${screen}_live(conn: sqlite3.Connection, relay: Relay[str]):
+    async def handler(c: Context, w: Writer) -> None:
+        async with relay.subscribe(CHANGED) as events:
+            sse = SSE(w)
+            sse.patch_elements(render(data.list_${screen}(conn)))
+            async for _ in c.alive(events):
+                sse.patch_elements(render(data.list_${screen}(conn)))
+
+    return handler
+
+
+def add_$screen(conn: sqlite3.Connection, relay: Relay[str]):
+    async def handler(c: Context, w: Writer) -> None:
+        signals = await read_signals(c.req)
+        body = str(signals.get("body", "")).strip()
+        w.empty()
+        if body:
+            data.add_${screen}(conn, body)
+            relay.publish(CHANGED, "add")
+
+    return handler
+
+
+def register_$screen(app: App, conn: sqlite3.Connection, relay: Relay[str]) -> None:
+    app.add($SCREEN, show_$screen(conn))
+    app.add(${SCREEN}_LIVE, ${screen}_live(conn, relay))
+    app.add(${SCREEN}_ADD, add_${screen}(conn, relay))

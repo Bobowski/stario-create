@@ -63,15 +63,23 @@ A custom theme:
 ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify  # before commit
 ```
 
-Run it next to `uv run stario watch app.main:bootstrap`. `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
+Run it next to `just dev` (or `uv run watchfiles 'uv run python -m app.main' app/ static/` without `just`). `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
 
 ## The shell
 
 ```python
+from stario import h
+from stario.datastar import ModuleScript, data
+from stario.markup import HtmlElement, baked, classes
+
+from app.assets import DATASTAR_JS, STYLE_CSS
+
+
 @baked
 def page(title: str, body: HtmlElement) -> HtmlElement:
     return h.HtmlDocument(
-        {"lang": "en", "data-theme": "light", "data-preserve-attr": "data-theme"},
+        {"lang": "en", "data-theme": "light"},
+        data.preserve_attr("data-theme"),
         h.Head(
             h.Meta({"charset": "utf-8"}),
             h.Meta({"name": "viewport", "content": "width=device-width, initial-scale=1"}),

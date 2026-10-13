@@ -1,0 +1,24 @@
+from stario import h
+from stario.datastar import at, data
+from stario.markup import HtmlElement
+
+from app.common.shell import page
+from app.features.$screen.data import ${Screen}Row
+from app.features.$screen.urls import ${SCREEN}_ADD, ${SCREEN}_LIVE
+
+
+def render(rows: list[${Screen}Row]) -> HtmlElement:
+    return page(
+        "$title",
+        h.Main(
+            {"id": "$screen"},
+            data.signals({"body": ""}, if_missing=True),
+            data.init(at.get(${SCREEN}_LIVE.href(), retry="always")),
+            h.Form(
+                data.on("submit", f"evt.preventDefault(); {at.post(${SCREEN}_ADD.href())}"),
+                h.Input({"type": "text", "placeholder": "Add one"}, data.bind("body")),
+                h.Button({"type": "submit"}, "Add"),
+            ),
+            h.Ul(*[h.Li(row.body) for row in rows]),
+        ),
+    )

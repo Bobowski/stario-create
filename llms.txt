@@ -1,13 +1,13 @@
 # Stario
 
-Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a screen live. State lives on the server. Stario is not ASGI; run it with `stario serve app.main:bootstrap` or `stario watch app.main:bootstrap`.
+Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a screen live. State lives on the server. Stario is not ASGI; run it with `python -m app.main`, or `just dev` / `uv run watchfiles 'uv run python -m app.main' app/ static/` in development.
 
 ## Start here
 
 - [AGENTS.md](https://stario.dev/AGENTS.md): the app guide. Copy it into every Stario repo. Layout, invariants, the CQRS default, render from state, signals, code shape, tests, common mistakes.
-- [setup.sh](https://stario.dev/setup.sh): `curl -fsSL https://stario.dev/setup.sh | sh -s -- my-app` creates a runnable app with the guide and the skills in place.
-- [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the three skills in one file, for tools that want more context.
-- [The Stario way](https://stario.dev/docs/the-stario-way): the direction behind the rules.
+- [stario-create](https://github.com/bobowski/stario-create): `uvx stario-create new my-app` creates a runnable app with the guide, the skills, and a `justfile`. `curl -fsSL https://stario.dev/setup.sh | sh -s -- my-app` does the same.
+- [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the four skills in one file, for tools that want more context.
+- [The Stario way](https://stario.dev/docs/explanation/the-stario-way): why Stario is shaped this way.
 
 ## Skills (optional stacks)
 
@@ -21,11 +21,12 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 - [Hello world](https://stario.dev/docs/tutorials/hello-world): first bootstrap, handler, page.
 - [Realtime tiles](https://stario.dev/docs/tutorials/realtime-tiles): one live screen in one file.
 - [Chat room](https://stario.dev/docs/tutorials/chat-room): the same idea as a project tree.
-- [Go-to architecture](https://stario.dev/docs/explanation/go-to-architecture): one stream, short commands, `ui = f(state)`.
+- [Live pages](https://stario.dev/docs/explanation/live-pages): one open response, short commands, render from state.
 - [Structuring apps](https://stario.dev/docs/how-tos/structuring-apps): the file tree.
-- [Datastar SDK](https://stario.dev/docs/how-tos/datastar-sdk): `data`, `at`, `SSE`, `read_signals`.
+- [Datastar from Python](https://stario.dev/docs/how-tos/datastar-sdk): `data`, `at`, `SSE`, `read_signals`.
 - [Routing](https://stario.dev/docs/reference/routing): `Route`, `app.add`, middleware.
-- [Runtime](https://stario.dev/docs/reference/runtime): bootstrap lifecycle, `STARIO_*` variables.
+- [Runtime](https://stario.dev/docs/reference/runtime): bootstrap lifecycle, `App`, `Server`.
+- [Configuration](https://stario.dev/docs/reference/configuration): `STARIO_*` variables, `ServerConfig`.
 - [Testing](https://stario.dev/docs/reference/testing): `TestClient`, `stream`, `iter_events`.
 - [Telemetry](https://stario.dev/docs/reference/telemetry): spans and tracers.
 - [JSON](https://stario.dev/docs/reference/json): the process-wide codec.

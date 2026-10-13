@@ -1,0 +1,7 @@
+from app.features.home.urls import HOME
+
+
+async def test_home_loads(client):
+    r = await client.get(HOME.href())
+    assert r.status_code == 200
+    assert 'id="home"' in r.text
