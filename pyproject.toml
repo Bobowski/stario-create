@@ -1,6 +1,6 @@
 [project]
 name = "stario-create"
-version = "5.0.0"
+version = "5.0.1"
 description = "Create and grow Stario apps: scaffold, screens, skills, dev tasks."
 readme = "README.md"
 requires-python = ">=3.14"
