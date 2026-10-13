@@ -18,13 +18,11 @@ just check   # lint, format, types, tests — run before done
 
 `new` creates a uv project on Python 3.14, adds `stario>=5,<6` and the dev tools, writes the feature-folder layout with one static `home` screen, vendors `static/js/datastar.js`, writes `AGENTS.md`, a `CLAUDE.md` that imports it, and a `justfile` (`dev`, `serve`, `check`, `fix`, `test`), installs the four skills into `.agents/skills/`, and runs the tests once. Without `just`, the recipes in the justfile are plain commands — run them directly.
 
-Before the first PyPI release, run from git:
+From git instead of PyPI:
 
 ```bash
 uvx --from git+https://github.com/bobowski/stario-create stario-create new my-app
 ```
-
-`curl -fsSL https://stario.dev/setup.sh | sh -s -- my-app` does the same through a shim.
 
 ## Growing an app
 
@@ -55,11 +53,11 @@ Every command prints JSON when stdout is piped, takes `--json` or `--text`, and 
 
 ## Served copies
 
-`stario.dev` serves these files: `/AGENTS.md`, `/setup.sh`, `/llms.txt`, `/llms-full.txt` (the guide and the skills in one file), `/skills/`, and `/skills/<name>/SKILL.md`.
+`stario.dev` serves these files: `/AGENTS.md`, `/llms.txt`, `/llms-full.txt` (the guide and the skills in one file), `/skills/`, and `/skills/<name>/SKILL.md`.
 
 ## Repo layout
 
-`AGENTS.md`, `llms.txt`, `setup.sh`, and `skills/` sit at the root — `npx skills`, `stario.dev`, and repo browsing all read them there. The wheel embeds copies under `stario_create/_data/` (hatchling `force-include`), so `uvx` works without a checkout. In a checkout, the CLI reads the root files directly, so there is one canonical copy of each file.
+`AGENTS.md`, `llms.txt`, and `skills/` sit at the root — `npx skills`, `stario.dev`, and repo browsing all read them there. The wheel embeds copies under `stario_create/_data/` (hatchling `force-include`), so `uvx` works without a checkout. In a checkout, the CLI reads the root files directly, so there is one canonical copy of each file.
 
 ## Changing the guide
 
