@@ -1,0 +1,1 @@
+Add a shared todo list to this app at /todos. Anyone can add an item and mark an item done. Every open browser tab must show the change right away, without a reload. Keep the items in SQLite so they survive a restart. Add a link to /todos from the home page.

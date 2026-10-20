@@ -1,0 +1,1 @@
+On the todos page, let people sort the list by date added (newest or oldest first) or by title. The chosen sort applies only to that person's own browser tab; other people keep their own sort. The list must still update live when anyone adds or ticks an item.

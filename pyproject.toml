@@ -1,7 +1,7 @@
 [project]
 name = "stario-create"
-version = "5.0.1"
-description = "Create and grow Stario apps: scaffold, screens, skills, dev tasks."
+version = "5.1.0"
+description = "Create a Stario app and keep its guide and skills in sync."
 readme = "README.md"
 requires-python = ">=3.14"
 license = "MIT"
@@ -31,6 +31,9 @@ stario-create = "stario_create.cli:main"
 [build-system]
 requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["evals"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stario_create"]
@@ -70,6 +73,7 @@ strict = ["src"]
 target-version = "py314"
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = ["evals/fixtures"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "SIM", "RUF", "PT"]

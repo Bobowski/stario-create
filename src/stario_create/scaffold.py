@@ -1,26 +1,26 @@
-"""Write project files: the app skeleton, a new screen, agent files.
+"""Write project files: the app skeleton and the agent files it keeps in sync.
 
 Templates live in ``templates/`` as ``*.tmpl`` files so linters never see them.
-``string.Template`` fills ``$app_name`` / ``$screen`` / ``$Screen`` /
-``$SCREEN`` / ``$path`` / ``$title``. All writes are idempotent: a file that
+``string.Template`` fills ``$app_name``. All writes are idempotent: a file that
 already holds the target content counts as kept, not created.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
-import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 from string import Template
 
 from stario_create.data import guide_text, resource, skill_names, template
-from stario_create.tasks import render_justfile
 
-STARIO_REQ = "stario>=5,<6"
+STARIO_REQ = "stario>=5.1,<6"
 DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_THIS_APP = "\n## This app"
 _VENDOR = Path(__file__).resolve().parent / "vendor"
 
 
@@ -38,10 +38,6 @@ def check_name(name: str) -> None:
             f"'{name}' is not a valid feature name",
             "use lowercase snake_case, e.g. my_board",
         )
-
-
-def _pascal(screen: str) -> str:
-    return "".join(part.title() for part in screen.split("_"))
 
 
 def _write(path: Path, text: str, created: list[str], *, force: bool = False) -> None:
@@ -93,19 +89,44 @@ def scaffold_files(root: Path, app_name: str, *, force: bool = False) -> list[st
     w("tests/conftest.py", _fill("tests/conftest.py.tmpl"))
     w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
 
-    w("justfile", render_justfile())
-    w("CLAUDE.md", "@AGENTS.md\n")
-    w("AGENTS.md", guide_text())
+    w("justfile", template("justfile").read_text())
 
-    for skill in skill_names():
-        w(
-            f".agents/skills/{skill}/SKILL.md",
-            resource(f"skills/{skill}/SKILL.md").read_text(),
-        )
+    guide = sync_guide(root, force=force)
+    if guide is not None:
+        created.append(guide)
+    created.extend(sync_skill_files(root, force=force))
 
     _append_once(root / ".gitignore", "*.sqlite3*", created)
     _append_pyproject_extras(root / "pyproject.toml", created)
     return created
+
+
+def link_skills(root: Path, names: Iterable[str], *, force: bool = False) -> list[str]:
+    """Link .claude/skills/<name> to the copy in .agents/skills/.
+
+    Claude Code reads skills from .claude/skills/ only. A symlink keeps one
+    canonical copy; when os.symlink is unavailable the skill dir is copied.
+    Returns the destination paths written.
+    """
+    linked: list[str] = []
+    for name in names:
+        dest = root / ".claude" / "skills" / name
+        target = os.path.join("..", "..", ".agents", "skills", name)
+        if dest.is_symlink():
+            if os.readlink(dest) == target:
+                continue
+            dest.unlink()
+        elif dest.exists():
+            if not force:
+                continue
+            shutil.rmtree(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.symlink(target, dest, target_is_directory=True)
+        except OSError:
+            shutil.copytree(root / ".agents" / "skills" / name, dest)
+        linked.append(str(dest))
+    return linked
 
 
 def _append_once(path: Path, line: str, created: list[str]) -> None:
@@ -126,103 +147,67 @@ def _append_pyproject_extras(path: Path, created: list[str]) -> None:
     created.append(str(path))
 
 
-def screen_files(root: Path, screen: str, *, live: bool = False, force: bool = False) -> list[str]:
-    """Write one feature folder and its test. Returns the files written."""
-    check_name(screen)
-    feature = root / "app" / "features" / screen
-    if feature.exists() and any(feature.iterdir()) and not force:
-        raise ScaffoldError(
-            "exists",
-            f"app/features/{screen} already exists",
-            "pass --force to overwrite",
-        )
-    subs = {
-        "screen": screen,
-        "Screen": _pascal(screen),
-        "SCREEN": screen.upper(),
-        "path": screen.replace("_", "-"),
-        "title": _pascal(screen),
-    }
-    kind = "screen-live" if live else "screen"
-    created: list[str] = []
+def sync_guide(root: Path, *, force: bool = False) -> str | None:
+    """Write the bundled guide to AGENTS.md. Returns the path, or None if current.
 
-    def w(rel: str, text: str) -> None:
-        _write(root / rel, text, created, force=force)
-
-    w(f"app/features/{screen}/__init__.py", "")
-    w(f"app/features/{screen}/urls.py", _fill(f"{kind}/urls.py.tmpl", **subs))
-    w(f"app/features/{screen}/views.py", _fill(f"{kind}/views.py.tmpl", **subs))
-    w(f"app/features/{screen}/handlers.py", _fill(f"{kind}/handlers.py.tmpl", **subs))
-    w(f"tests/test_{screen}.py", _fill(f"{kind}/test.py.tmpl", **subs))
-    if live:
-        w(f"app/features/{screen}/data.py", _fill("screen-live/data.py.tmpl", **subs))
-    return created
-
-
-def register_screen(root: Path, screen: str, *, live: bool) -> list[str]:
-    """Patch app/main.py to wire the screen. Returns manual steps left over.
-
-    Lines are inserted in plausible spots, then ruff sorts the imports. A
-    main.py that does not match the scaffolded shape is left untouched and
-    the steps come back as manual instructions.
+    An existing file keeps everything from its `## This app` heading on. A file
+    without that section needs `force`.
     """
-    main_py = root / "app" / "main.py"
-    if not main_py.is_file():
-        raise ScaffoldError("no-main", "app/main.py not found", "run from the project root")
-    text = main_py.read_text()
-    call = (
-        f"register_{screen}(app, conn, relay)" if live else f"register_{screen}(app)"
-    )
-    if call in text:
-        return []
-
-    if "\n    yield" not in text:
-        return [f"register the screen in bootstrap before yield: {call}"]
-
-    # Imports land at the end of the import block; ruff sorts them after.
-    head, _, rest = text.partition("\n\n")
-    import_lines = [f"from app.features.{screen}.handlers import register_{screen}"]
-    if live:
-        import_lines.append(f"from app.features.{screen} import data as {screen}_data")
-        if "import sqlite3" not in text:
-            head = "import sqlite3\n" + head
-        if ", Relay" not in head and "import Relay" not in head:
-            head = head + "\nfrom stario import Relay"
-    text = head + "\n" + "\n".join(import_lines) + "\n\n" + rest
-
-    if live:
-        if "sqlite3.connect(" not in text:
-            text = text.replace(
-                "config = Config.from_env()",
-                "config = Config.from_env()\n    conn = sqlite3.connect(config.db_path)",
-                1,
+    path = root / "AGENTS.md"
+    bundled = guide_text()
+    if path.exists():
+        text = path.read_text()
+        if _THIS_APP in text:
+            target = bundled.split(_THIS_APP)[0] + _THIS_APP + text.split(_THIS_APP, 1)[1]
+        elif force:
+            target = bundled
+        else:
+            raise ScaffoldError(
+                "no-this-app",
+                "AGENTS.md has no '## This app' section",
+                "pass --force to overwrite the whole file",
             )
-        marker = f"conn.executescript({screen}_data.SCHEMA)"
-        if marker not in text:
-            text = text.replace(
-                "sqlite3.connect(config.db_path)",
-                f"sqlite3.connect(config.db_path)\n    {marker}",
-                1,
-            )
-        if "Relay()" not in text:
-            text = text.replace(
-                "config = Config.from_env()",
-                "config = Config.from_env()\n    relay: Relay[str] = Relay()",
-                1,
-            )
-        if "conn.close()" not in text:
-            text = text.replace("\n    yield", "\n    yield\n    conn.close()", 1)
+        if text == target:
+            return None
+    else:
+        target = bundled
+    path.write_text(target)
+    return str(path)
 
-    text = text.replace("\n    yield", f"\n    {call}\n    yield", 1)
-    main_py.write_text(text)
 
-    subprocess.run(
-        ["uv", "run", "ruff", "check", "--fix", "--select", "I", "app/main.py"],
-        cwd=root,
-        capture_output=True,
-        check=False,
-    )
-    subprocess.run(
-        ["uv", "run", "ruff", "format", "app/main.py"], cwd=root, capture_output=True, check=False
-    )
-    return []
+def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
+    """Copy bundled skills to .agents/skills/ and link them from .claude/skills/."""
+    written: list[str] = []
+    for name in skill_names():
+        dest = root / ".agents" / "skills" / name / "SKILL.md"
+        text = resource(f"skills/{name}/SKILL.md").read_text()
+        if dest.is_file() and dest.read_text() == text:
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text)
+        written.append(str(dest))
+    written.extend(link_skills(root, skill_names(), force=force))
+    return written
+
+
+def stale_files(root: Path) -> list[str]:
+    """Paths that differ from the bundle. Empty means the app is in sync."""
+    stale: list[str] = []
+    bundled_head = guide_text().split(_THIS_APP)[0].strip()
+    path = root / "AGENTS.md"
+    local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
+    if local_head != bundled_head:
+        stale.append("AGENTS.md")
+    for name in skill_names():
+        dest = root / ".agents" / "skills" / name / "SKILL.md"
+        if (
+            not dest.is_file()
+            or dest.read_text() != resource(f"skills/{name}/SKILL.md").read_text()
+        ):
+            stale.append(f".agents/skills/{name}/SKILL.md")
+        link = root / ".claude" / "skills" / name
+        if not link.is_symlink() or os.readlink(link) != os.path.join(
+            "..", "..", ".agents", "skills", name
+        ):
+            stale.append(f".claude/skills/{name}")
+    return stale

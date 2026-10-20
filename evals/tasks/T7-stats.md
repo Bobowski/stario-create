@@ -1,0 +1,1 @@
+Add a /stats page where the user pastes text and gets readability statistics: word count, sentence count, average sentence length, and the Flesch reading ease score. Write the text analysis so that we can reuse it later from a command-line tool and from other pages.

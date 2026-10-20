@@ -1,0 +1,1 @@
+Add accounts to the todo app. People sign up with an email and a password, sign in, and sign out. Only signed-in people can open the todos page; anyone else lands on the sign-in page. Each person sees and changes only their own todos.

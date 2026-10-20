@@ -4,7 +4,7 @@ The project tool and agent guidance for building apps with [Stario](https://star
 
 Two things ship from here:
 
-- The `stario-create` CLI (`uvx stario-create`, or `uv tool install stario-create`). It scaffolds apps, adds screens, installs the skills, updates the guide, and runs the dev tasks.
+- The `stario-create` CLI (`uvx stario-create`, or `uv tool install stario-create`). It scaffolds apps and keeps their guide and skills in sync.
 - The files it installs: `AGENTS.md` (the always-on guide an app keeps at its root) and `skills/<name>/SKILL.md` (on-demand procedures an agent loads when the task matches).
 
 ## New app
@@ -18,33 +18,57 @@ just check   # lint, format, types, tests — run before done
 
 `new` gives you a tested, runnable app:
 
-- A uv project on Python 3.14 with `stario>=5,<6` and the dev tools.
+- A uv project on Python 3.14 with `stario>=5.1,<6` and the dev tools.
 - The feature-folder layout with one static `home` screen.
 - `static/js/datastar.js` vendored.
-- `AGENTS.md` plus a `CLAUDE.md` that imports it.
-- The four skills installed into `.agents/skills/`.
+- `AGENTS.md` at the app root (Claude Code reads it directly).
+- The four skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
-`stario-create init` does the same inside the current directory.
+`new` takes `--dir` to pick the parent directory and `--force` to write into a non-empty one.
 
-## Growing an app
+## Syncing an app
 
-Run these at the app root:
+Run this at the app root:
 
 ```bash
-stario-create screen settings            # static page
-stario-create screen notes --live        # GET + live stream + one command
-stario-create skills install             # skills into .agents/skills/
-stario-create guide --check              # is AGENTS.md stale?
-stario-create guide --write              # update it, keep '## This app'
-stario-create check                      # ruff, format, pyright, pytest
-stario-create dev                        # hot reload, no `just` needed
+stario-create sync           # refresh AGENTS.md and the skills
+stario-create sync --check   # exit 1 when the guide or a skill is stale
 ```
 
-The task commands (`dev`, `serve`, `check`, `fix`, `test`) run the same commands the justfile recipes run, so the app never depends on this tool.
+`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It prints one line per file changed, or "up to date".
 
-Every command prints JSON when stdout is piped, takes `--json` or `--text`, and writer commands take `--dry-run` and `--force`.
+## Without the CLI
+
+To build an app by hand, the `pyproject.toml` needs these blocks:
+
+```toml
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["app", "tests"]
+extend-exclude = [".agents", ".claude", ".cursor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+include = ["app", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+```
+
+Stario does not read `.env`. Configure with environment variables; `serve` reads `STARIO_*` through `ServerConfig.from_env()`. `STARIO_PORT` changes the port.
+
+The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx skills add bobowski/stario-create`.
 
 ## Skills
 

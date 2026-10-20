@@ -11,16 +11,17 @@ Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The sta
 
 ```bash
 mkdir -p frontend/src static/css
-# Tailwind standalone CLI: pick the asset for your OS from
-# https://github.com/tailwindlabs/tailwindcss/releases/latest
-curl -fL -o tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-arm64
+# Pin the releases: set the tags you tested (see each project's releases page).
+TW=v4.x.y   # https://github.com/tailwindlabs/tailwindcss/releases
+DU=v5.x.y   # https://github.com/saadeghi/daisyui/releases
+curl -fL -o tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/$TW/tailwindcss-macos-arm64"
 chmod +x tailwindcss
 # DaisyUI bundles for the standalone CLI
-curl -fL -o frontend/daisyui.mjs https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.mjs
-curl -fL -o frontend/daisyui-theme.mjs https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.mjs
+curl -fL -o frontend/daisyui.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui.mjs"
+curl -fL -o frontend/daisyui-theme.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui-theme.mjs"
 ```
 
-Linux: `tailwindcss-linux-x64` or `tailwindcss-linux-arm64`. Intel Mac: `tailwindcss-macos-x64`. Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
+Linux: `tailwindcss-linux-x64` or `tailwindcss-linux-arm64`. Intel Mac: `tailwindcss-macos-x64`. Pinned tags make every machine build the same CSS. A repo with one shared binary links it instead: `ln -s ../../tools/tailwindcss tailwindcss`. Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
 
 ## `frontend/src/input.css`
 
@@ -58,12 +59,19 @@ A custom theme:
 
 ## Build
 
-```bash
-./tailwindcss -i frontend/src/input.css -o static/css/output.css --watch   # dev
-./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify  # before commit
+Add two recipes to the `justfile`:
+
+```make
+# build the stylesheet once
+css:
+    ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify
+
+# rebuild the stylesheet on change; run next to `just dev`
+css-watch:
+    ./tailwindcss -i frontend/src/input.css -o static/css/output.css --watch
 ```
 
-Run it next to `just dev` (or `uv run watchfiles 'python -m app.main' app/ static/` without `just`). `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
+Run `just css-watch` next to `just dev`, and `just css` before a commit. `Assets` fingerprints `output.css`, so `STYLE_CSS = ASSETS.href("css/output.css")` in `app/assets.py`.
 
 ## The shell
 
@@ -92,6 +100,43 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
 ```
 
 `data-theme` on `<html>` selects the DaisyUI theme. `data-preserve-attr="data-theme"` keeps a theme the user switched when the stream morphs the document.
+
+## A theme switch
+
+The theme is client-only state. The browser keeps it in `localStorage`; the server does not store it.
+
+Add one line to `input.css`, so `dark:` utilities follow `data-theme` and not the OS setting:
+
+```css
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+```
+
+In the shell, restore the theme in `<head>`, before the first paint. A restore in `data.init` runs after Datastar loads, and a dark page flashes light first.
+
+```python
+from stario.markup import SafeString
+
+RESTORE_THEME = SafeString(
+    "document.documentElement.dataset.theme = localStorage.getItem('theme')"
+    " || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')"
+)
+TOGGLE_THEME = (
+    "const e = document.documentElement;"
+    " e.dataset.theme = e.dataset.theme === 'dark' ? 'light' : 'dark';"
+    " localStorage.setItem('theme', e.dataset.theme)"
+)
+
+# in page(): h.Head(..., h.Script(RESTORE_THEME), ...)
+h.Button(
+    classes("btn", "btn-ghost", "btn-circle"),
+    {"type": "button", "aria-label": "Switch theme"},
+    data.on("click", TOGGLE_THEME),
+    h.Span(classes("dark:hidden"), "Dark"),
+    h.Span(classes("hidden", "dark:inline"), "Light"),
+)
+```
+
+`data.preserve_attr("data-theme")` on `<html>` keeps the choice when the stream morphs the document.
 
 ## Classes in views
 

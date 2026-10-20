@@ -1,0 +1,1 @@
+Add a /notes screen: a live list of short notes that several people edit at once. Each note has a title. A user can open a note in an edit dialog, change the title, and save it. When another person adds or changes a note while my dialog is open, my dialog must stay open and keep what I typed. Keep the notes in memory; no database is needed.

@@ -7,7 +7,7 @@ description: User identity in a Stario app - a signed session cookie, middleware
 
 Read `AGENTS.md` first. This skill adds one shared module, one screen, and one rule: user identity lives in a signed cookie, never in a signal or a URL.
 
-Stario ships `set_cookie` and `delete_cookie` in `stario.cookies` and a per-request `c.state` dict. It ships no session or user store. The code below is the whole default. Copy it; do not import a session library.
+Stario ships `set_cookie` and `delete_cookie` in `stario.cookies` (`httponly=True` and `samesite="lax"` by default), `same_origin()` in `stario.http` (the scaffold already applies it), and a per-request `c.state` dict. It ships no session or user store. The code below is the whole default. Copy it; do not import a session library.
 
 ## `app/common/session.py`
 
@@ -109,6 +109,9 @@ def check_password(password: str, stored: str) -> bool:
 class Config:
     db_path: str
     session_secret: bytes
+    dev: bool
+    admin_email: str
+    admin_password: str
 
     @classmethod
     def from_env(cls) -> Config:
@@ -118,10 +121,13 @@ class Config:
         return cls(
             db_path=os.environ.get("APP_DB_PATH", "app.sqlite3"),
             session_secret=secret.encode(),
+            dev=os.environ.get("APP_DEV") == "1",
+            admin_email=os.environ.get("ADMIN_EMAIL", ""),
+            admin_password=os.environ.get("ADMIN_PASSWORD", ""),
         )
 ```
 
-Generate one: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Export it in the shell that runs `python -m app.main`. Set it in `tests/conftest.py` with `monkeypatch.setenv`.
+Generate a secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. `APP_DEV=1` allows the cookie over plain HTTP on localhost. Do not set it in production.
 
 ## Wire it in `bootstrap`
 
@@ -132,10 +138,10 @@ session = Session(secret=config.session_secret, secure=not config.dev)
 app.use("/", session.attach())
 app.use("/app", session.require(LOGIN.href()))
 register_login(app, conn, session)
-register_board(app, conn, relay)  # its routes start with /app/board
+register_board(app, conn, relay)  # BOARD = Route("GET /app/board"): protected screens live under /app
 ```
 
-`app.use("/", ...)` runs before every route, so `c.state["user"]` is always set. `app.use("/app", ...)` runs before every route under `/app`, including the 404/405 answers. `app.use` and `app.add` work in any order; the router composes middleware when the app compiles.
+The scaffold's `app.use("/", same_origin(), security_headers())` must stay: `same_origin()` answers 403 to a `POST`, `PUT`, `PATCH`, or `DELETE` that another site sent. With the `samesite="lax"` cookie, a command cannot be forged from another page. An app without it adds `same_origin()` before the session middleware. `app.use("/", ...)` runs before every route, so `c.state["user"]` is always set. `app.use("/app", ...)` runs before every route under `/app`, including the 404/405 answers. `app.use` and `app.add` work in any order; the router composes middleware when the app compiles.
 
 Seed the first user in `bootstrap`, after the schema and before `yield`:
 
@@ -146,13 +152,17 @@ if conn.execute("SELECT count(*) FROM users").fetchone()[0] == 0 and config.admi
     )
 ```
 
-`admin_email` and `admin_password` are `Config` fields read from `ADMIN_EMAIL` and `ADMIN_PASSWORD`, default `""`. A single protected screen outside the prefix passes `middleware=[session.require(LOGIN.href())]` to `app.add`.
+A single protected screen outside the prefix passes `middleware=[session.require(LOGIN.href())]` to `app.add`.
 
-`secure=True` needs HTTPS. Add a `dev: bool` field to `Config` read from `APP_DEV=1` and pass `secure=not config.dev`. Do not ship `secure=False`.
+### Accounts in an app that already has screens
+
+- Keep the URLs. Links and bookmarks point at them. Protect a screen where it is: `app.use("/todos", session.require(LOGIN.href()))` covers `/todos` and every route below it. Use the `/app` prefix only for new apps.
+- Ask the developer what happens to rows that exist before accounts: give them to the seed user, or delete them. Do not leave them with an empty owner that no user can see. If you cannot ask, keep the rows. Do not delete them. Write the open choice in `## This app`.
+- Data that belongs to a user gets a `user_id` column. Every query, stream, and command filters by `c.state["user"]`. A command checks that the row belongs to the user before it changes it (404 when it does not).
 
 ## The login screen: `app/features/login/`
 
-Login is the one screen without a stream. There is no shared state to repaint, and the error belongs to this request alone. So the submit command replies with the re-rendered page on failure and navigates on success.
+Login is a static screen. Its submit is a private request: the error belongs to this tab alone, so a wrong password patches the re-rendered page into that tab, and a success navigates.
 
 `urls.py`:
 
@@ -189,6 +199,27 @@ def add_user(conn: sqlite3.Connection, user_id: str, email: str, password_hash: 
             (user_id, email, password_hash),
         )
 ```
+
+With litewriter (skill `stario-litewriter`), keep the same `SCHEMA` and write the two functions like this:
+
+```python
+from litewriter import LiteWriter, Tx
+
+
+def get_user_by_email(db: LiteWriter, email: str) -> tuple[str, str] | None:
+    return db.one("SELECT id, password FROM users WHERE email = :email", email=email)
+
+
+def add_user(tx: Tx, user_id: str, email: str, password_hash: str) -> None:
+    tx.execute(
+        "INSERT INTO users (id, email, password) VALUES (:id, :email, :password)",
+        id=user_id,
+        email=email,
+        password=password_hash,
+    )
+```
+
+Then a handler writes with `await db.write(data.add_user, ...)`. Hash the password before that call, never inside the write function: the hash would hold the writer's whole batch. The seed check is `db.value("SELECT count(*) FROM users") == 0`, and the seed itself is `await db.write(...)` in `bootstrap` (`db.submit(...).result()` raises there, because `bootstrap` runs on the event loop). A sign-up with a taken email raises `apsw.ConstraintError` from `db.write`; catch it and render "That email is already registered."
 
 `views.py`:
 
@@ -242,14 +273,11 @@ from app.features.login.urls import LOGIN, LOGIN_POST, LOGOUT
 from app.features.login.views import render
 
 
-def show_login(session: Session):
-    async def handler(c: Context, w: Writer) -> None:
-        if c.state.get("user"):
-            w.redirect(HOME.href(), status=303)
-            return
-        w.html(render())
-
-    return handler
+async def show_login(c: Context, w: Writer) -> None:
+    if c.state.get("user"):
+        w.redirect(HOME.href(), status=303)
+        return
+    w.html(render())
 
 
 def submit_login(conn: sqlite3.Connection, session: Session):
@@ -278,7 +306,7 @@ def logout(session: Session):
 
 
 def register_login(app: App, conn: sqlite3.Connection, session: Session) -> None:
-    app.add(LOGIN, show_login(session))
+    app.add(LOGIN, show_login)
     app.add(LOGIN_POST, submit_login(conn, session))
     app.add(LOGOUT, logout(session))
 ```

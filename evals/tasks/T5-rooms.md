@@ -1,0 +1,1 @@
+Add chat rooms. /rooms lists the rooms and has a form to create a room by name. Creating a room takes the user straight to that room's page at /rooms/{id}. On a room page, people post messages, and every message appears right away for everyone who has that room open. Keep the data in memory.

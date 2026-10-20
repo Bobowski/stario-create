@@ -1,0 +1,1 @@
+Show who added each todo. There are no accounts. Let each visitor type a display name once; their browser tab remembers it, and every item they add shows that name. Existing items without a name show "someone".
