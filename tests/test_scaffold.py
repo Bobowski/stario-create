@@ -48,6 +48,15 @@ def test_scaffold_files_compile(tmp_path: Path):
         assert (link / "SKILL.md").read_text() == skill_md.read_text()
 
 
+def test_scaffold_orjson_adds_the_codec(tmp_path: Path):
+    scaffold_files(tmp_path, "demo", orjson=True)
+    text = (tmp_path / "app/main.py").read_text()
+    assert "import orjson" in text
+    assert "from stario import App, Span, json, serve" in text
+    assert "json.set_codec(orjson.dumps, orjson.loads)" in text
+    assert _compile_dir(tmp_path) == []
+
+
 def test_scaffold_is_idempotent(tmp_path: Path):
     scaffold_files(tmp_path, "demo")
     assert scaffold_files(tmp_path, "demo") == []

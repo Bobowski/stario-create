@@ -6,6 +6,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## 5.1.0
 
+### Added
+
+- `stario-create new --orjson` adds `orjson` to the app's dependencies and
+  sets it as the `stario.json` codec in the scaffolded `main.py`.
+
 ### Changed
 
 - The guide (`AGENTS.md`) is rewritten and much shorter, so it fits the rule

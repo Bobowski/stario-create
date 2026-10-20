@@ -59,7 +59,9 @@ def _fill(name: str, **subs: str) -> str:
     return Template(template(name).read_text()).safe_substitute(subs)
 
 
-def scaffold_files(root: Path, app_name: str, *, force: bool = False) -> list[str]:
+def scaffold_files(
+    root: Path, app_name: str, *, force: bool = False, orjson: bool = False
+) -> list[str]:
     """Write the app tree under root. Returns the files written."""
     created: list[str] = []
 
@@ -76,7 +78,15 @@ def scaffold_files(root: Path, app_name: str, *, force: bool = False) -> list[st
     w("app/features/home/urls.py", _fill("app/features/home/urls.py.tmpl"))
     w("app/features/home/views.py", _fill("app/features/home/views.py.tmpl"))
     w("app/features/home/handlers.py", _fill("app/features/home/handlers.py.tmpl"))
-    w("app/main.py", _fill("app/main.py.tmpl"))
+    w(
+        "app/main.py",
+        _fill(
+            "app/main.py.tmpl",
+            orjson_import="\nimport orjson" if orjson else "",
+            json_import=", json" if orjson else "",
+            codec="    json.set_codec(orjson.dumps, orjson.loads)\n" if orjson else "",
+        ),
+    )
     w("static/css/style.css", _fill("app/style.css.tmpl"))
 
     target = root / "static/js/datastar.js"

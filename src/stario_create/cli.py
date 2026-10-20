@@ -63,10 +63,10 @@ def cmd_new(args: argparse.Namespace) -> int:
         _run(["uv", "init", "--app", "--python", "3.14", str(dest)], dest)
     if (dest / "main.py").exists():
         (dest / "main.py").unlink()
-    _run(["uv", "add", STARIO_REQ], dest)
+    _run(["uv", "add", STARIO_REQ, *(["orjson>=3.13.0"] if args.orjson else [])], dest)
     _run(["uv", "add", "--dev", *DEV_REQS], dest)
 
-    created = scaffold_files(dest, args.name, force=args.force)
+    created = scaffold_files(dest, args.name, force=args.force, orjson=args.orjson)
 
     if not args.no_verify:
         proc = subprocess.run(
@@ -120,6 +120,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name")
     p.add_argument("--dir", default=None, help="parent directory (default: ./<name>)")
     p.add_argument("--force", action="store_true", help="overwrite existing files")
+    p.add_argument(
+        "--orjson",
+        action="store_true",
+        help="add orjson and set it as the stario.json codec",
+    )
     p.add_argument("--no-verify", action="store_true", help="skip the post-scaffold test run")
     p.set_defaults(func=cmd_new)
 

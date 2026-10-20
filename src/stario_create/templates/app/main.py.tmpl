@@ -1,6 +1,6 @@
 import asyncio
-
-from stario import App, Span, serve
+$orjson_import
+from stario import App, Span$json_import, serve
 from stario.http import same_origin, security_headers
 
 from app.assets import ASSETS
@@ -9,7 +9,7 @@ from app.features.home.handlers import register_home
 
 
 async def bootstrap(app: App, span: Span):
-    config = Config.from_env()
+$codec    config = Config.from_env()
     app.use("/", same_origin(), security_headers())
     span.attrs(await ASSETS.attach(app))
     register_home(app, config.app_name)
