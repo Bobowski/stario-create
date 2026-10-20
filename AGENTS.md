@@ -4,9 +4,9 @@ How to build a Stario app. This is the default; when the developer asks for some
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (add or remove a screen, complete example files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS).
+Skills in `.agents/skills/`: `stario-feature` (add or remove a screen), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS).
 
-Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure.
+Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure. A live update is proven by the next SSE event in that run.
 
 ## Layout
 
@@ -35,7 +35,7 @@ tests/test_<screen>.py
 ## Stario rules
 
 - Not ASGI: no Uvicorn, FastAPI, or response objects. `python -m app.main` runs `asyncio.run(serve(bootstrap))`.
-- `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register features, `yield`, clean up. The scaffold adds `app.use("/", same_origin(), security_headers())` (`stario.http`): cross-site commands get 403, and responses get baseline headers. Routes are fixed after `bootstrap`.
+- `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register features, `yield`, clean up. The scaffold adds `app.use("/", same_origin(), security_headers())`: cross-site commands get 403, responses get baseline headers. Routes are fixed after `bootstrap`.
 - A handler is `async def handler(c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)` registers it; `ROUTE.href(room_id)` builds the link. No `url_for`, no `app.get`.
 - `c.match.params`, `c.req.query`, `c.req.cookies`; `c.state` is filled by middleware. Middleware is `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
@@ -78,13 +78,13 @@ def board_live(board: Board, relay: Relay[str]):
     return handler
 ```
 
-Subscribe before the first render. `latest=True` keeps only the newest event per subject: a repaint needs no backlog. Subjects are dotted strings at the top of `handlers.py`; `"room.*"` matches every room. With litewriter, `db.watch(query)` replaces `Relay` for row changes.
+Subscribe before the first render. `latest=True` keeps the newest event per subject. Subjects are dotted strings (`"room.*"` matches every room). With litewriter, `db.watch(query)` replaces `Relay`.
 
 A command is a Datastar action: `data.on("click", at.post(ROUTE.href()))`, or `data.on("submit", at.post(ROUTE.href()), prevent=True)` on a `<form>`. A page with inputs uses Datastar, not `<form method="post">`.
 
 Bad input: empty or unchanged input replies 204 and does nothing. A domain conflict (name taken) is written to state and rendered. Malformed or forged input (bad format, unknown id, another user's row) gets `w.text("why", status=400)` (or 404, 403) and `return`.
 
-Slow work (a model call, a download, a report): the command adds a job with status `queued`, replies 204, publishes, and runs `c.app.create_task(run(job))`. The task sets `running`, then `done` or `failed`, and publishes each change. Never `await` slow work in a command. The delay or the client is a `Config` field, so tests run fast.
+Slow work (a model call, a download, a report): add a job (`queued`), reply 204, publish, and run `c.app.create_task(run(job))`. The task sets `running`, then `done` or `failed`, and publishes each change. Never `await` it in the command. The delay is a `Config` field, so tests run fast.
 
 A command that ends on another screen replies `SSE(w).navigate(OTHER.href())`. A 303 to a Datastar request does not change the URL.
 
@@ -118,7 +118,7 @@ Choose with the developer. Do not add a database the app does not need.
 - No persistence: an object built in `bootstrap`.
 - SQLite: litewriter is the recommended default (skill `stario-litewriter`). Plain `sqlite3` is fine for a small app.
 - Every `SCHEMA` statement is `IF NOT EXISTS`. The database path is a `Config` field; tests point it at `tmp_path`.
-- A host data directory (Yard sets `PROJECT_DATA_DIR=/data`) must hold the database, or a redeploy loses it. Reading it in `Config` is worth it for an app that deploys.
+- A host data directory (Yard sets `PROJECT_DATA_DIR=/data`) must hold the database, or a redeploy loses it.
 
 ## Code shape
 
@@ -129,12 +129,14 @@ Choose with the developer. Do not add a database the app does not need.
 
 ## Tests
 
-Tests run the production `bootstrap` through `TestClient`. Each screen: the page loads; a command repaints the stream; malformed input returns 400.
+Tests run the production `bootstrap` through `TestClient`. Each screen: the page loads; a command repaints the stream; malformed input returns 400. `timeout=2` on `client.stream` raises `TimeoutError` in two seconds when no repaint comes.
+
+The next SSE event is the live update: assert the HTML that changed. Two `client.stream` calls are two tabs. Playwright (`stario-feature`, against `just dev`) checks that Datastar morphed it. Computer use is for a look the script cannot make, after this test is green.
 
 ```python
 async def test_paint_repaints_the_stream(client):
     headers = {"accept-encoding": "identity"}
-    async with client.stream("GET", BOARD_LIVE.href(), headers=headers) as live:
+    async with client.stream("GET", BOARD_LIVE.href(), headers=headers, timeout=2) as live:
         events = live.iter_events()
         assert 'id="board"' in (await anext(events))["data"]
         r = await client.post(PAINT.href(1), json={"color": "#ff0000"})
@@ -150,6 +152,7 @@ async def test_paint_repaints_the_stream(client):
 | --- | --- |
 | Flat `app/routes.py`, `app/views/` | `app/features/<screen>/` |
 | A command that returns HTML | 204, change state, publish |
+| A browser session to watch a panel repaint | the next SSE event |
 | A stream or server state for a result one tab asked for | a `GET` that patches its part |
 | `await` slow work in a command | a job and `c.app.create_task` |
 | `w.redirect` after a Datastar action | `SSE(w).navigate(url)` |

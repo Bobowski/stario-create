@@ -4,6 +4,15 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Changed
+
+- The guide proves a live update from the next SSE event (`timeout=2` on
+  `client.stream`, so a missing repaint fails in two seconds). Playwright, in
+  the `stario-feature` skill, checks that Datastar morphed that HTML. A
+  computer-use session is for a visual judgment the assertion cannot make.
+
 ## 5.1.0
 
 ### Added

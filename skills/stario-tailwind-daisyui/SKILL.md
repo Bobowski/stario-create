@@ -157,4 +157,4 @@ Rules:
 
 ## Checks
 
-The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild.
+The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. When a class does not apply, check that the literal appears in a `.py` file under `app/`, then rebuild. To see the element in a browser, use the Playwright script in `stario-feature`. Computer use is for whether the theme looks right.

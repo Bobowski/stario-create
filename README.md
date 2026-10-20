@@ -74,7 +74,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 | Skill | Use it when |
 | --- | --- |
-| `stario-feature` | You add or remove one screen: a page or a resource with its own URL. |
+| `stario-feature` | You add or remove one screen: a page or a resource with its own URL. Also the Playwright check for a live update. |
 | `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected screens. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, `watch` repaints a live screen from a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
