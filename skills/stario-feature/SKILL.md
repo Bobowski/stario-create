@@ -1,6 +1,6 @@
 ---
 name: stario-feature
-description: Add, change, or remove a screen (page or resource) in a Stario app. Use when the user asks for a new page or route, wants a screen to update live or in every tab, adds a button, form, command, edit dialog, search box, filter, or background job to a screen, fixes a page that does not refresh, or deletes a screen. Has complete example files for a static screen, a private read, a live screen, slow work, and an edit dialog.
+description: Add, change, or remove a screen (page or resource) in a Stario app. Use when the user asks for a new page or route, wants a screen to update live or in every tab, adds a button, form, command, edit dialog, search box, filter, or background job to a screen, fixes a page that does not refresh, deletes a screen, or checks a live update in a browser. Has complete example files for a static screen, a private read, a live screen, slow work, and an edit dialog, plus a Playwright script for the morph.
 ---
 
 # Add, change, or remove a screen
@@ -19,8 +19,8 @@ description: Add, change, or remove a screen (page or resource) in a Stario app.
 1. `app/features/<screen>/__init__.py`, `urls.py`, `views.py`, `handlers.py`, and `data.py` only if the screen owns tables.
 2. `app/main.py`: build the shared object once, then `register_<screen>(app, ...)` before `yield`.
 3. A link from an existing screen: import its `urls.py` and use `ROUTE.href()` in `h.A({"href": ...})`.
-4. `tests/test_<screen>.py`: the page loads; a command repaints the stream; malformed input returns 400.
-5. `just check`. Fix every failure.
+4. `tests/test_<screen>.py`: the page loads; a command repaints the stream; malformed input returns 400. Assert the changed HTML in the next SSE event (`AGENTS.md`, Tests).
+5. `just check`. Fix every failure. That stream test is the live-update check. The Playwright script below is for the morph and the layout.
 
 ## A static screen
 
@@ -361,6 +361,73 @@ def rename(notes: Notes, relay: Relay[str]):
 ```
 
 `string_literal` comes from `stario.datastar.format`. A repaint keeps the dialog open (`preserve_attr`) and keeps what the user typed (`if_missing=True`). `type(...) is not int` also rejects `true`, which `isinstance` accepts. An add form on the same page binds its own signal (`new_title`), not the dialog's `title`.
+
+## Check a live update
+
+The stream test is the fast check, and it is the one `just check` runs. Open the live route, read the first event so the subscription is up, send the command, assert the next event. `timeout=2` makes a missing repaint fail in two seconds. Two streams are two tabs: one post, both events carry the new HTML. This is the whole check for "the other view never updates".
+
+```python
+# tests/test_board.py
+HEADERS = {"accept-encoding": "identity"}
+
+
+async def test_paint_shows_on_another_tab(client):
+    async with (
+        client.stream("GET", BOARD_LIVE.href(), headers=HEADERS, timeout=2) as first,
+        client.stream("GET", BOARD_LIVE.href(), headers=HEADERS, timeout=2) as second,
+    ):
+        one, two = first.iter_events(), second.iter_events()
+        assert 'id="board"' in (await anext(one))["data"]
+        assert 'id="board"' in (await anext(two))["data"]
+        r = await client.post(PAINT.href(1), json={"color": "#ff0000"})
+        assert r.status_code == 204
+        assert "background:#ff0000" in (await anext(one))["data"]
+        assert "background:#ff0000" in (await anext(two))["data"]
+```
+
+Assert the panel the command was supposed to change (`background:#ff0000`, the new title, the public state). `timeout` covers the whole stream, from open until the last event you read, so a job test that waits for `done` sets it above the test's delay.
+
+### Playwright, when the browser is the question
+
+Run this after the stream test is green, and only when the question is whether Datastar applied the patch or the page looks right. The viewer's DOM changes because its SSE stream delivered the HTML and Datastar morphed it. Headless, one script, re-runnable. Leave `playwright` out of the app's dependencies, so `just check` stays the fast path.
+
+`just dev` is already serving the app. Point the URL and the locators at the screen you changed.
+
+```python
+# check_live.py
+import asyncio
+
+from playwright.async_api import async_playwright, expect
+
+
+async def main() -> None:
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        viewer = await browser.new_page()
+        actor = await browser.new_page()
+        await viewer.goto("http://127.0.0.1:8000/board")
+        await actor.goto("http://127.0.0.1:8000/board")
+        await actor.locator("input[type=color]").fill("#ff0000")
+        await actor.get_by_role("button", name="Tile 1").click()
+        await expect(viewer.get_by_role("button", name="Tile 1")).to_have_attribute(
+            "style", "background:#ff0000"
+        )
+        await browser.close()
+
+
+asyncio.run(main())
+```
+
+```bash
+uv run --with playwright playwright install chromium
+uv run --with playwright python check_live.py
+```
+
+If Chromium will not start, `uv run --with playwright playwright install-deps chromium` installs its system libraries and needs root.
+
+One page is enough when the click and the result are on the same tab: `await expect(page.get_by_text("Public")).to_be_visible()`. For a dialog that must survive a repaint, open it on the viewer, change state from the actor, then expect the dialog to still be visible and the field to still hold what was typed. Delete `check_live.py` when it passes, unless the developer asks to keep a browser suite.
+
+Computer use — a session that clicks and looks — is for a judgment this script cannot make (spacing, contrast, overlap). It comes after the stream test, and after this script when the morph is in doubt.
 
 ## Remove a screen
 

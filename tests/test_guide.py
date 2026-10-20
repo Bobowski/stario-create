@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-from stario_create.data import guide_text
+from stario_create.data import guide_text, skill_text
 
 
 def _python_blocks(text: str) -> list[str]:
@@ -46,3 +46,18 @@ def test_guide_python_blocks_are_formatted(tmp_path):
 
 def test_guide_ends_with_this_app_section():
     assert guide_text().rstrip().rsplit("## ", 1)[-1].startswith("This app")
+
+
+def test_guide_proves_a_live_update_from_the_stream():
+    text = guide_text()
+    assert "timeout=2" in text
+    assert "next SSE event" in text
+    assert "Playwright" in text
+    assert "stario-feature" in text
+
+
+def test_feature_skill_checks_the_stream_then_playwright():
+    text = skill_text("stario-feature")
+    assert "timeout=2" in text
+    assert "async_playwright" in text
+    assert "playwright install chromium" in text
