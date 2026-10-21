@@ -352,7 +352,9 @@ h.Main(
         {"id": "edit"},
         data.preserve_attr("open"),
         h.Form(
-            data.on("submit", at.post(RENAME.href()) + "; el.closest('dialog').close()", prevent=True),
+            data.on(
+                "submit", at.post(RENAME.href()) + "; el.closest('dialog').close()", prevent=True
+            ),
             h.Input({"type": "text"}, data.bind("title")),
             h.Button({"type": "submit"}, "Save"),
         ),
