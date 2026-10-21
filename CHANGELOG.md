@@ -4,6 +4,14 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.1.2
+
+### Added
+
+- `stario_create.data_dir()` returns the folder with `AGENTS.md`,
+  `AGENTS-api.md`, `llms.txt`, and `skills/`. A site that serves these
+  files reads them from there.
+
 ## 5.1.1
 
 ### Added

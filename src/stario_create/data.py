@@ -23,6 +23,11 @@ def resource(name: str) -> Path:
     return Path(str(files("stario_create").joinpath("_data", name)))
 
 
+def data_dir() -> Path:
+    """The folder that holds AGENTS.md, AGENTS-api.md, llms.txt, and skills/."""
+    return resource("AGENTS.md").parent
+
+
 def template(name: str) -> Path:
     """Path to a template file: 'app/main.py.tmpl', 'screen/urls.py.tmpl'."""
     return _PACKAGE / "templates" / name
