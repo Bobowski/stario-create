@@ -1,10 +1,14 @@
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-from stario_create.data import guide_text, skill_names, template
+import pytest
+
+from stario_create.data import guide_text, resource, skill_names, template
 from stario_create.scaffold import scaffold_files
 
 CLI = [sys.executable, "-m", "stario_create.cli"]
@@ -47,8 +51,9 @@ def test_scaffold_files_compile(tmp_path: Path):
     install = (tmp_path / ".cursor/cloud-install.sh").read_text()
     assert "uv python install 3.14" in install
     assert "uv sync --all-groups" in install
-    assert "TAILWIND_VERSION" in install
     assert "--locked" in install
+    assert "just tailwind" in install
+    assert "TAILWIND_VERSION" not in install
     for skill in skill_names():
         skill_md = tmp_path / ".agents/skills" / skill / "SKILL.md"
         assert skill_md.exists()
@@ -253,6 +258,20 @@ def test_cli_sync_check_flags_justfile_without_pytest(tmp_path: Path):
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "justfile (check does not run pytest)" in out.stdout
+
+
+def test_tailwind_recipe_parses(tmp_path: Path):
+    just = shutil.which("just")
+    if just is None:
+        pytest.skip("just is not on PATH")
+    text = resource("skills/stario-tailwind-daisyui/SKILL.md").read_text()
+    block = re.search(r"```make\n(.*?)```", text, re.S)
+    assert block is not None
+    (tmp_path / "justfile").write_text(block.group(1))
+    out = subprocess.run([just, "--summary"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    for name in ("tailwind", "css", "css-watch"):
+        assert name in out.stdout.split()
 
 
 def test_cli_sync_rewrites_cloud_install_keeps_environment(tmp_path: Path):

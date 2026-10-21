@@ -11,17 +11,12 @@ Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The sta
 
 ```bash
 mkdir -p frontend/src static/css
-# Pin the releases: set the tags you tested (see each project's releases page).
-TW=v4.x.y   # https://github.com/tailwindlabs/tailwindcss/releases
-DU=v5.x.y   # https://github.com/saadeghi/daisyui/releases
-curl -fL -o tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/$TW/tailwindcss-macos-arm64"
-chmod +x tailwindcss
-# DaisyUI bundles for the standalone CLI
+DU=v5.x.y   # pin the DaisyUI tag you tested: https://github.com/saadeghi/daisyui/releases
 curl -fL -o frontend/daisyui.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui.mjs"
 curl -fL -o frontend/daisyui-theme.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui-theme.mjs"
 ```
 
-Linux: `tailwindcss-linux-x64` or `tailwindcss-linux-arm64`. Intel Mac: `tailwindcss-macos-x64`. Pinned tags make every machine build the same CSS. A repo with one shared binary links it instead: `ln -s ../../tools/tailwindcss tailwindcss`. Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
+The `tailwind` recipe in the `justfile` gets the Tailwind binary (see Build). Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
 
 ## `frontend/src/input.css`
 
@@ -59,15 +54,37 @@ A custom theme:
 
 ## Build
 
-Add two recipes to the `justfile`:
+Add three recipes to the `justfile`. `v` pins the Tailwind tag, so every machine builds the same CSS. `just css` gets the binary when `./tailwindcss` is missing. Each version downloads once per machine into `~/.cache/tailwindcss/`.
 
 ```make
+# get the pinned Tailwind CLI; css and css-watch run this first
+tailwind:
+    #!/usr/bin/env sh
+    set -eu
+    v=v4.3.3
+    bin="$HOME/.cache/tailwindcss/$v/tailwindcss"
+    if [ "$(readlink tailwindcss 2>/dev/null)" = "$bin" ] && [ -x "$bin" ]; then exit 0; fi
+    case "$(uname -s):$(uname -m)" in
+      Darwin:arm64) a=macos-arm64 ;;
+      Darwin:x86_64) a=macos-x64 ;;
+      Linux:x86_64 | Linux:amd64) a=linux-x64 ;;
+      Linux:aarch64 | Linux:arm64) a=linux-arm64 ;;
+      *) echo "no Tailwind build for $(uname -s) $(uname -m)" >&2; exit 1 ;;
+    esac
+    if [ ! -x "$bin" ]; then
+      mkdir -p "$(dirname "$bin")"
+      curl -fL --retry 3 -o "$bin.part" "https://github.com/tailwindlabs/tailwindcss/releases/download/$v/tailwindcss-$a"
+      chmod +x "$bin.part"
+      mv "$bin.part" "$bin"
+    fi
+    ln -sfn "$bin" tailwindcss
+
 # build the stylesheet once
-css:
+css: tailwind
     ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify
 
 # rebuild the stylesheet on change; run next to `just dev`
-css-watch:
+css-watch: tailwind
     ./tailwindcss -i frontend/src/input.css -o static/css/output.css --watch
 ```
 
@@ -157,6 +174,6 @@ Rules:
 
 ## Checks
 
-After you change a class, run `just css` and commit `static/css/output.css`. A Cloud Agent gets the binary from `.cursor/cloud-install.sh`.
+After you change a class, run `just css` and commit `static/css/output.css`. `just css` gets the binary on any machine, a Cloud Agent included.
 
 The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild.

@@ -14,8 +14,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `just` on the disk.
 - `.cursor/cloud-install.sh` installs the dependencies from `uv.lock`
   (`uv sync --all-groups --locked`, with a fresh resolve when the lock is
-  stale) and downloads the pinned Tailwind binary when the app has
-  `frontend/src/input.css`.
+  stale) and runs `just tailwind` when the app has that recipe.
 - The guide has a `Cursor Cloud specific instructions` section. The stream
   test is the proof. Use computer use only when that cannot prove the change.
 - `stario-feature`, `stario-auth`, and `stario-litewriter` tell the agent to
@@ -33,6 +32,9 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   a pull request". That workflow belongs in the app's `## This app` notes.
 - `sync` always refreshes `.cursor/cloud-install.sh`; the file is tool-owned.
   `.cursor/environment.json` is still only written when missing.
+- The Tailwind skill puts a `tailwind` recipe in the `justfile`. `css` and
+  `css-watch` run it first. It downloads the pinned binary once per version
+  into `~/.cache/tailwindcss/`.
 
 ## 5.1.0
 
