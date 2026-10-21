@@ -26,7 +26,7 @@ just check   # lint, format, types, tests — run before done
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
-`new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
+`new` also writes a `Containerfile` and a `.dockerignore`. `new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
 
 ## Syncing an app
 

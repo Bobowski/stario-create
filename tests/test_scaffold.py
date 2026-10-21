@@ -45,6 +45,8 @@ def test_scaffold_files_compile(tmp_path: Path):
     justfile = (tmp_path / "justfile").read_text()
     assert "\ndev:" in justfile
     assert "\ncheck:" in justfile
+    assert (tmp_path / "Containerfile").read_text() == template("Containerfile").read_text()
+    assert (tmp_path / ".dockerignore").read_text() == template("dockerignore").read_text()
     env = (tmp_path / ".cursor/environment.json").read_text()
     assert "cloud-install.sh" in env
     assert "enable_testing" not in env

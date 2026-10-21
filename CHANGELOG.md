@@ -25,6 +25,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `sync` removes the skills the profile excludes.
 - `sync --check` also reports agent files that git ignores and a `check`
   recipe that does not run pytest.
+- `new` writes a `Containerfile` and a `.dockerignore`. The image installs
+  from `uv.lock` and listens on `0.0.0.0:8000`.
 
 ### Changed
 
