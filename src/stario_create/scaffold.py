@@ -121,7 +121,7 @@ def scaffold_files(
     w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
 
     w("justfile", template("justfile").read_text())
-    w("Containerfile", template("Containerfile").read_text())
+    w("Dockerfile", template("Dockerfile").read_text())
     w(".dockerignore", template("dockerignore").read_text())
     created.extend(sync_cloud_env(root, force=force))
 
