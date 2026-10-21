@@ -4,7 +4,7 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## 5.2.0
+## 5.1.1
 
 ### Added
 
