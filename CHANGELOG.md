@@ -14,7 +14,7 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `cloud-install.sh` current. The install script puts `uv`, Python 3.14, and
   `just` on the disk.
 - `.cursor/cloud-install.sh` installs the dependencies from `uv.lock`
-  (`uv sync --all-groups --locked`, with a fresh resolve when the lock is
+  (`uv sync --all-groups --all-extras --locked`, with a fresh resolve when the lock is
   stale) and runs `just tailwind` when the app has that recipe.
 - The guide has a `Cursor Cloud specific instructions` section. The stream
   test is the proof. Use computer use only when that cannot prove the change.

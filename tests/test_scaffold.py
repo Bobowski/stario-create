@@ -52,7 +52,7 @@ def test_scaffold_files_compile(tmp_path: Path):
     assert "enable_testing" not in env
     install = (tmp_path / ".cursor/cloud-install.sh").read_text()
     assert "uv python install 3.14" in install
-    assert "uv sync --all-groups" in install
+    assert "uv sync --all-groups --all-extras" in install
     assert "--locked" in install
     assert "just tailwind" in install
     assert "TAILWIND_VERSION" not in install
