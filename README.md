@@ -37,7 +37,7 @@ stario-create sync           # refresh AGENTS.md, skills, and missing Cloud Agen
 stario-create sync --check   # exit 1 when the guide, a skill, or a Cloud Agent file is stale
 ```
 
-`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It writes `.cursor/environment.json` and `.cursor/cloud-install.sh` when they are missing. It prints one line per file changed, or "up to date".
+`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It writes `.cursor/environment.json` only when it is missing — a saved snapshot id survives — and always refreshes the tool-owned `.cursor/cloud-install.sh`. With `[tool.stario-create] profile = "api"` in the app's `pyproject.toml` it installs the short JSON API guide and removes the bundled skills. It prints one line per file changed, or "up to date".
 
 ## Without the CLI
 

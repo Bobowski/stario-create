@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import tempfile
@@ -46,6 +47,8 @@ def test_scaffold_files_compile(tmp_path: Path):
     install = (tmp_path / ".cursor/cloud-install.sh").read_text()
     assert "uv python install 3.14" in install
     assert "uv sync --all-groups" in install
+    assert "TAILWIND_VERSION" in install
+    assert "--locked" in install
     for skill in skill_names():
         skill_md = tmp_path / ".agents/skills" / skill / "SKILL.md"
         assert skill_md.exists()
@@ -190,3 +193,81 @@ def test_cli_sync_check_detects_missing_link(tmp_path: Path):
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert ".claude/skills/stario-auth" in out.stdout
+
+
+def test_cli_sync_api_profile(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text('[tool.stario-create]\nprofile = "api"\n')
+    local = tmp_path / "AGENTS.md"
+    local.write_text("OLD HEAD\n\n## This app\n\nkeep me\n")
+    for name in skill_names():
+        skill_dir = tmp_path / ".agents/skills" / name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("old skill\n")
+        link_dir = tmp_path / ".claude/skills"
+        link_dir.mkdir(parents=True, exist_ok=True)
+        os.symlink(os.path.join("..", "..", ".agents", "skills", name), link_dir / name)
+    custom = tmp_path / ".agents/skills/custom"
+    custom.mkdir(parents=True)
+    (custom / "SKILL.md").write_text("custom skill\n")
+
+    out = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    text = local.read_text()
+    assert text.split("\n## This app", 1)[1] == "\n\nkeep me\n"
+    assert text.startswith(guide_text("api").split("## This app")[0][:50])
+    for name in skill_names():
+        assert not (tmp_path / ".agents/skills" / name).exists()
+        assert not (tmp_path / ".claude/skills" / name).exists()
+        assert f"removed .agents/skills/{name}" in out.stdout
+    assert (custom / "SKILL.md").read_text() == "custom skill\n"
+
+    check = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert check.returncode == 0, check.stdout
+
+    (tmp_path / ".agents/skills" / skill_names()[0]).mkdir(parents=True)
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "(not in profile api)" in out.stdout
+
+
+def test_cli_sync_bad_profile(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text('[tool.stario-create]\nprofile = "web"\n')
+    out = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "stario-create:" in out.stderr
+
+
+def test_cli_sync_check_flags_ignored_files(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+    (tmp_path / ".gitignore").write_text(".agents/\n")
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    for name in skill_names():
+        assert f".agents/skills/{name}/SKILL.md (ignored by git)" in out.stdout
+    assert "AGENTS.md (ignored by git)" not in out.stdout
+
+
+def test_cli_sync_check_flags_justfile_without_pytest(tmp_path: Path):
+    (tmp_path / "justfile").write_text("check:\n    uv run ruff check .\n    uv run pyright\n")
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "justfile (check does not run pytest)" in out.stdout
+
+
+def test_cli_sync_rewrites_cloud_install_keeps_environment(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    install = tmp_path / ".cursor/cloud-install.sh"
+    install.write_text("# stale\n")
+    env_path = tmp_path / ".cursor/environment.json"
+    env_path.write_text('{"snapshot": "keep-me"}\n')
+
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert ".cursor/cloud-install.sh" in out.stdout
+
+    out = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert install.read_text() == template("cursor/cloud-install.sh").read_text()
+    assert ".cursor/cloud-install.sh" in out.stdout
+    assert env_path.read_text() == '{"snapshot": "keep-me"}\n'

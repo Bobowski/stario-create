@@ -157,4 +157,6 @@ Rules:
 
 ## Checks
 
+After you change a class, run `just css` and commit `static/css/output.css`. A Cloud Agent gets the binary from `.cursor/cloud-install.sh`.
+
 The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild.

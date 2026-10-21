@@ -40,6 +40,7 @@ packages = ["src/stario_create"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "AGENTS.md" = "stario_create/_data/AGENTS.md"
+"AGENTS-api.md" = "stario_create/_data/AGENTS-api.md"
 "llms.txt" = "stario_create/_data/llms.txt"
 "skills" = "stario_create/_data/skills"
 

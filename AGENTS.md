@@ -161,7 +161,7 @@ async def test_paint_repaints_the_stream(client):
 
 ## Cursor Cloud specific instructions
 
-Install is `.cursor/cloud-install.sh`. Use computer use only when the stream test cannot prove the change. Do not open a pull request. Push `main` to deploy.
+Install is `.cursor/cloud-install.sh`. Use computer use only when the stream test cannot prove the change.
 
 ## This app
 

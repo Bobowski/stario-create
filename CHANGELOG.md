@@ -9,14 +9,30 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Added
 
 - Cloud Agent files: `.cursor/environment.json` and `.cursor/cloud-install.sh`.
-  `new` writes them. `sync` writes them when they are missing. The install
-  script puts `uv`, Python 3.14, and `just` on the disk.
+  `new` writes them. `sync` writes a missing `environment.json` and keeps
+  `cloud-install.sh` current. The install script puts `uv`, Python 3.14, and
+  `just` on the disk.
+- `.cursor/cloud-install.sh` installs the dependencies from `uv.lock`
+  (`uv sync --all-groups --locked`, with a fresh resolve when the lock is
+  stale) and downloads the pinned Tailwind binary when the app has
+  `frontend/src/input.css`.
 - The guide has a `Cursor Cloud specific instructions` section. The stream
   test is the proof. Use computer use only when that cannot prove the change.
-  Do not open a pull request. Push `main` to deploy.
 - `stario-feature`, `stario-auth`, and `stario-litewriter` tell the agent to
   prove a change with `TestClient`, not a browser. The feature skill now has
   the live-screen stream test.
+- An app profile: `[tool.stario-create] profile = "api"` in the app's
+  `pyproject.toml` gives the app the short JSON API guide and no skills.
+  `sync` removes the skills the profile excludes.
+- `sync --check` also reports agent files that git ignores and a `check`
+  recipe that does not run pytest.
+
+### Changed
+
+- The guide no longer says how to deploy: no "push `main`", no "do not open
+  a pull request". That workflow belongs in the app's `## This app` notes.
+- `sync` always refreshes `.cursor/cloud-install.sh`; the file is tool-owned.
+  `.cursor/environment.json` is still only written when missing.
 
 ## 5.1.0
 

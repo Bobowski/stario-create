@@ -102,7 +102,10 @@ def cmd_sync(args: argparse.Namespace) -> int:
     if sync_guide(root, force=args.force) is not None:
         changed.append("AGENTS.md")
     changed += [str(Path(p).relative_to(root)) for p in sync_cloud_env(root)]
-    changed += [str(Path(p).relative_to(root)) for p in sync_skill_files(root, force=args.force)]
+    changed += [
+        p if p.startswith("removed ") else str(Path(p).relative_to(root))
+        for p in sync_skill_files(root, force=args.force)
+    ]
     if changed:
         print("\n".join(changed))
     else:
