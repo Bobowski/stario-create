@@ -27,7 +27,7 @@ def _compile_dir(root: Path) -> list[str]:
 
 def test_justfile_template_lists_recipes():
     text = template("justfile").read_text()
-    for name in ("dev", "serve", "check", "fix", "test"):
+    for name in ("dev", "serve", "check", "fix", "test", "sync"):
         assert f"\n{name}:" in text
     assert "set dotenv-load := true" in text
     assert "uv run watchfiles" in text

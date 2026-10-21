@@ -4,10 +4,11 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 5.2.0
 
 ### Added
 
+- The `justfile` has a `sync` recipe: `uvx stario-create@latest sync`.
 - Cloud Agent files: `.cursor/environment.json` and `.cursor/cloud-install.sh`.
   `new` writes them. `sync` writes a missing `environment.json` and keeps
   `cloud-install.sh` current. The install script puts `uv`, Python 3.14, and

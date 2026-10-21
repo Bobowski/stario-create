@@ -23,14 +23,14 @@ just check   # lint, format, types, tests — run before done
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
 - The four skills installed into `.agents/skills/` and linked from `.claude/skills/`.
-- A `justfile` (`dev`, `serve`, `check`, `fix`, `test`). Without `just`, the recipes are plain commands — run them directly.
+- A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
 `new` also writes a `Containerfile` and a `.dockerignore`. `new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
 
 ## Syncing an app
 
-Run this at the app root:
+In an app, `just sync` runs `uvx stario-create@latest sync`. Run this at the app root:
 
 ```bash
 stario-create sync           # refresh AGENTS.md, skills, and missing Cloud Agent files
