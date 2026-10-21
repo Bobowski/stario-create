@@ -40,6 +40,12 @@ def test_scaffold_files_compile(tmp_path: Path):
     justfile = (tmp_path / "justfile").read_text()
     assert "\ndev:" in justfile
     assert "\ncheck:" in justfile
+    env = (tmp_path / ".cursor/environment.json").read_text()
+    assert "cloud-install.sh" in env
+    assert "enable_testing" not in env
+    install = (tmp_path / ".cursor/cloud-install.sh").read_text()
+    assert "uv python install 3.14" in install
+    assert "uv sync --all-groups" in install
     for skill in skill_names():
         skill_md = tmp_path / ".agents/skills" / skill / "SKILL.md"
         assert skill_md.exists()
@@ -91,6 +97,8 @@ def test_cli_sync_fresh_dir(tmp_path: Path):
     again = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     assert again.returncode == 0, again.stderr
     assert again.stdout.strip() == "up to date"
+    assert (tmp_path / ".cursor/environment.json").is_file()
+    assert (tmp_path / ".cursor/cloud-install.sh").is_file()
 
 
 def test_cli_sync_preserves_this_app(tmp_path: Path):
@@ -146,6 +154,34 @@ def test_cli_sync_check_detects_stale_guide(tmp_path: Path):
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "AGENTS.md" in out.stdout
+
+
+def test_cli_sync_writes_missing_cloud_env(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    (tmp_path / ".cursor/environment.json").unlink()
+    out = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert ".cursor/environment.json" in out.stdout
+    assert (tmp_path / ".cursor/environment.json").is_file()
+
+
+def test_cli_sync_keeps_custom_cloud_env(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    custom = '{"snapshot": "keep-me", "enable_testing": false}\n'
+    path = tmp_path / ".cursor/environment.json"
+    path.write_text(custom)
+    out = subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert path.read_text() == custom
+    assert ".cursor/environment.json" not in out.stdout
+
+
+def test_cli_sync_check_detects_missing_cloud_env(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    (tmp_path / ".cursor/cloud-install.sh").unlink()
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert ".cursor/cloud-install.sh" in out.stdout
 
 
 def test_cli_sync_check_detects_missing_link(tmp_path: Path):

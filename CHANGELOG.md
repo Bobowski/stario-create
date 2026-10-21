@@ -4,6 +4,20 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+
+- Cloud Agent files: `.cursor/environment.json` and `.cursor/cloud-install.sh`.
+  `new` writes them. `sync` writes them when they are missing. The install
+  script puts `uv`, Python 3.14, and `just` on the disk.
+- The guide has a `Cursor Cloud specific instructions` section. The stream
+  test is the proof. Use computer use only when that cannot prove the change.
+  Do not open a pull request. Push `main` to deploy.
+- `stario-feature`, `stario-auth`, and `stario-litewriter` tell the agent to
+  prove a change with `TestClient`, not a browser. The feature skill now has
+  the live-screen stream test.
+
 ## 5.1.0
 
 ### Added

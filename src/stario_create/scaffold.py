@@ -1,6 +1,6 @@
 """Write project files: the app skeleton and the agent files it keeps in sync.
 
-Templates live in ``templates/`` as ``*.tmpl`` files so linters never see them.
+Templates live in ``templates/``. ``*.tmpl`` files take ``$app_name``. Cloud Agent files are copied as they are.
 ``string.Template`` fills ``$app_name``. All writes are idempotent: a file that
 already holds the target content counts as kept, not created.
 """
@@ -100,6 +100,7 @@ def scaffold_files(
     w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
 
     w("justfile", template("justfile").read_text())
+    created.extend(sync_cloud_env(root, force=force))
 
     guide = sync_guide(root, force=force)
     if guide is not None:
@@ -157,6 +158,32 @@ def _append_pyproject_extras(path: Path, created: list[str]) -> None:
     created.append(str(path))
 
 
+_CLOUD_FILES = (
+    (".cursor/environment.json", "cursor/environment.json"),
+    (".cursor/cloud-install.sh", "cursor/cloud-install.sh"),
+)
+
+
+def sync_cloud_env(root: Path, *, force: bool = False) -> list[str]:
+    """Write the Cloud Agent install files. Missing files are created.
+
+    A file that already exists is left alone unless ``force``. A saved snapshot
+    id in environment.json must survive sync.
+    """
+    written: list[str] = []
+    for rel, name in _CLOUD_FILES:
+        dest = root / rel
+        text = template(name).read_text()
+        if dest.is_file() and dest.read_text() == text:
+            continue
+        if dest.is_file() and not force:
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text)
+        written.append(str(dest))
+    return written
+
+
 def sync_guide(root: Path, *, force: bool = False) -> str | None:
     """Write the bundled guide to AGENTS.md. Returns the path, or None if current.
 
@@ -208,6 +235,9 @@ def stale_files(root: Path) -> list[str]:
     local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
     if local_head != bundled_head:
         stale.append("AGENTS.md")
+    for rel, _name in _CLOUD_FILES:
+        if not (root / rel).is_file():
+            stale.append(rel)
     for name in skill_names():
         dest = root / ".agents" / "skills" / name / "SKILL.md"
         if (

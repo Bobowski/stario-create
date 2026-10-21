@@ -33,11 +33,11 @@ just check   # lint, format, types, tests — run before done
 Run this at the app root:
 
 ```bash
-stario-create sync           # refresh AGENTS.md and the skills
-stario-create sync --check   # exit 1 when the guide or a skill is stale
+stario-create sync           # refresh AGENTS.md, skills, and missing Cloud Agent files
+stario-create sync --check   # exit 1 when the guide, a skill, or a Cloud Agent file is stale
 ```
 
-`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It prints one line per file changed, or "up to date".
+`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It writes `.cursor/environment.json` and `.cursor/cloud-install.sh` when they are missing. It prints one line per file changed, or "up to date".
 
 ## Without the CLI
 

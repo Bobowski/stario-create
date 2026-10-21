@@ -1,6 +1,6 @@
 """stario-create command line.
 
-Two commands: `new` scaffolds an app, `sync` refreshes its guide and skills.
+Two commands: `new` scaffolds an app, `sync` refreshes its guide, skills, and Cloud Agent files.
 Output is plain text. Errors print `stario-create: <message>` to stderr, with
 a `hint:` line when there is one, and exit 1.
 """
@@ -20,6 +20,7 @@ from stario_create.scaffold import (
     check_name,
     scaffold_files,
     stale_files,
+    sync_cloud_env,
     sync_guide,
     sync_skill_files,
 )
@@ -100,6 +101,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
     changed: list[str] = []
     if sync_guide(root, force=args.force) is not None:
         changed.append("AGENTS.md")
+    changed += [str(Path(p).relative_to(root)) for p in sync_cloud_env(root)]
     changed += [str(Path(p).relative_to(root)) for p in sync_skill_files(root, force=args.force)]
     if changed:
         print("\n".join(changed))
@@ -128,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-verify", action="store_true", help="skip the post-scaffold test run")
     p.set_defaults(func=cmd_new)
 
-    p = sub.add_parser("sync", help="update AGENTS.md and the skills in this app")
+    p = sub.add_parser("sync", help="update AGENTS.md, skills, and missing Cloud Agent files")
     p.add_argument("--check", action="store_true", help="exit 1 when the guide or a skill is stale")
     p.add_argument(
         "--force",
