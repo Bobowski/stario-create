@@ -4,6 +4,13 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.1.3
+
+### Changed
+
+- The app Dockerfile copies uv 0.13.5. uv below 0.13.4 still trusts the
+  compromised emSign root while it downloads packages.
+
 ## 5.1.2
 
 ### Added

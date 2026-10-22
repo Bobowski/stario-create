@@ -1,7 +1,7 @@
 # The app image. It listens on 0.0.0.0:8000. Mount the data directory and set PROJECT_DATA_DIR to it.
 FROM python:3.14-slim-trixie AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
