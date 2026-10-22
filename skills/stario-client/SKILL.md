@@ -102,6 +102,9 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 - **UI state that a click toggles is a local signal.** A QR panel, a "Copied" label, a pressed button: `$_qr = !$_qr` with `data.show("$_qr")` and `data.attr("aria-pressed", "$_qr")`, not `el.hidden = ...` in a file.
 - **A repaint copies every attribute from the server HTML.** An element whose `style` or `class` JavaScript writes during an interaction (a drag offset) gets `data.preserve_attr("style class")`.
 - **`data.init` runs again when its text changes.** Keep the text constant (server values go in `data-*` attributes) and write `el.x ??= app.x(el, ...)`, so the factory runs once per element.
+- **Guard an index read with the length.** Reading `$files[2]` when the list is shorter makes Datastar create the entry as `""`, so `$files.length` grows. Write `$files.length > 2 && $files[2].name`, and the same guard in `data.attr` and `data.text`.
+- **A checkbox group bound to one signal is positional.** `data.bind("scope")` on four checkboxes gives `["", "saved", "", ""]`: the value when checked, `""` when not. The server drops the empty strings before it uses the list.
+- **A part that a `GET` patches is not patched again for its own controls.** Re-rendering a checked checkbox from the server unchecks it, and the signal keeps the old value. Patch the results; leave the controls to the client.
 - **Another element is a ref, not an id lookup.** `data.ref("_edit")` on the dialog, `$_edit.showModal()` on the button. A ref name starts with `_`, so the element is not sent to the server.
 - **Server values reach JavaScript as signals or `data-*` attributes.** When an expression needs a literal, use `string_literal` from `stario.datastar.format`. Never build JavaScript with an f-string or `.replace`.
 - **The only inline `<script>` is the theme restore in `<head>`.** It is one constant line and must run before the first paint (skill `stario-tailwind-daisyui`).
