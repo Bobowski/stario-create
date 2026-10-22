@@ -148,7 +148,7 @@ h.Button(
 )
 ```
 
-The toggle lives in `static/js/theme.js` (guide, `## Client behaviour`), listed in `SCRIPTS` in `app/assets.py`:
+The toggle lives in `static/js/theme.js` (skill `stario-client`), listed in `SCRIPTS` in `app/assets.py`:
 
 ```js
 window.app ??= {};
