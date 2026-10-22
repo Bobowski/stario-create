@@ -128,7 +128,7 @@ Add one line to `input.css`, so `dark:` utilities follow `data-theme` and not th
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 ```
 
-In the shell, restore the theme in `<head>`, before the first paint. A restore in `data.init` runs after Datastar loads, and a dark page flashes light first.
+In the shell, restore the theme in `<head>`, before the first paint. A restore in `data.init` runs after Datastar loads, and a dark page flashes light first. This one line is the only inline script in the app.
 
 ```python
 from stario.markup import SafeString
@@ -137,23 +137,31 @@ RESTORE_THEME = SafeString(
     "document.documentElement.dataset.theme = localStorage.getItem('theme')"
     " || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')"
 )
-TOGGLE_THEME = (
-    "const e = document.documentElement;"
-    " e.dataset.theme = e.dataset.theme === 'dark' ? 'light' : 'dark';"
-    " localStorage.setItem('theme', e.dataset.theme)"
-)
 
 # in page(): h.Head(..., h.Script(RESTORE_THEME), ...)
 h.Button(
     classes("btn", "btn-ghost", "btn-circle"),
     {"type": "button", "aria-label": "Switch theme"},
-    data.on("click", TOGGLE_THEME),
+    data.on("click", "app.theme.toggle()"),
     h.Span(classes("dark:hidden"), "Dark"),
     h.Span(classes("hidden", "dark:inline"), "Light"),
 )
 ```
 
-`data.preserve_attr("data-theme")` on `<html>` keeps the choice when the stream morphs the document.
+The toggle lives in `static/js/theme.js` (guide, `## Client behaviour`), listed in `SCRIPTS` in `app/assets.py`:
+
+```js
+window.app ??= {};
+app.theme = {
+  toggle() {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", root.dataset.theme);
+  },
+};
+```
+
+The labels follow `dark:` utilities, so no script updates them. `data.preserve_attr("data-theme")` on `<html>` keeps the choice when the stream morphs the document.
 
 ## Classes in views
 
@@ -169,6 +177,7 @@ Rules:
 - Theme colors only: `bg-base-100`, `bg-base-200`, `text-base-content`, `bg-primary`, `text-primary-content`. No raw `bg-gray-100`. The theme stays switchable.
 - Layout with `flex`, `grid`, `gap-*`, `p-*`. No custom CSS for layout.
 - Custom CSS goes into `input.css` under `@layer components` only when a DaisyUI class does not exist. Name it after the app: `.app-stage`.
+- Tailwind scans only `app/**/*.py`. A class that only a `static/js/` file adds needs `@source "../../static/js/*.js";` in `input.css`. Better: let the HTML hold the class and toggle it with `data.class_`.
 - A modal is `<dialog class="modal">` with `data.preserve_attr("open")`. The server never renders it open.
 - A drawer on wide screens: `drawer lg:drawer-open`. The toggle is a checkbox the client owns; add `data.ignore_morph()` to the checkbox or `data.preserve_attr("checked")`.
 

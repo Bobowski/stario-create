@@ -22,7 +22,9 @@ app/
     handlers.py     handlers + register_<screen>(app, deps)
     data.py         SCHEMA + queries, when the screen owns tables
   <name>/           code with no URL (an engine, a parser, an API client); never imports features/
+static/js/<name>.js client behaviour that HTML and Datastar cannot express; defines app.<name>
 tests/test_<screen>.py
+tests/test_js.py    every app.<name> call in app/ has its function in static/js/
 ```
 
 - A screen is a page or a resource with its own URL. One screen, one folder, named after the URL noun: `/rooms/{room_id}` → `room`. Delete the folder with the screen.
@@ -30,7 +32,7 @@ tests/test_<screen>.py
 - `common/` holds what every screen shares (the shell, the session), not borrowed views or queries. Two screens with similar HTML keep their own copies.
 - `app/db.py` exists only when several features share one connection object.
 - The tree serves the problem: split a file when it is hard to read; keep imports one way.
-- No `.js` files: a Datastar expression on the element covers small UI behaviour.
+- JavaScript lives in `static/js/<name>.js`, never in a Python string. See `## Client behaviour`.
 
 ## Stario rules
 
@@ -111,6 +113,61 @@ Morphing HTML is the default: the server renders the state. Signals carry what t
 
 UI state must survive a morph, because a repaint can arrive at any moment. A `<dialog>` or `<details>` holds its own open state; add `data.preserve_attr("open")`. The server never renders a user-opened dialog as open. A subtree the client owns gets `data.ignore_morph()`.
 
+## Client behaviour
+
+Pick the first layer that does the job:
+
+1. **The server.** A search, a filter, or a list is a `GET` that patches its part, not JavaScript over a JSON copy of the data.
+2. **HTML and CSS.** `<dialog>`, `<details>`, `popover`, `:has()`, scroll-snap.
+3. **A Datastar attribute** with a short expression: one or two statements over signals, `el`, `evt`, and `app.*` calls. `data.bind` on `<input type="file">` already gives `[{name, contents, mime}]`; `@post` already follows `navigate`.
+4. **A function in `static/js/<name>.js`**, called from an attribute. Math, measuring, pointer physics, the browser APIs (`visualViewport`, `SpeechRecognition`, clipboard).
+
+Each file is a classic script that defines one namespace and nothing else at the top level:
+
+```js
+// static/js/ruler.js
+window.app ??= {};
+app.ruler = (el, { min, max, step }, write) => {
+  let dragging = false;
+  const valueAt = () => min + Math.round(el.scrollLeft / 10) * step;
+  el.addEventListener("pointerdown", (evt) => { dragging = true; el.setPointerCapture(evt.pointerId); });
+  el.addEventListener("pointerup", () => { dragging = false; });
+  el.addEventListener("scroll", () => dragging || write(valueAt()), { passive: true });
+  return {
+    show(value) { /* return early when value is already shown; else scroll to it */ },
+    step(dir) { write(Math.min(max, Math.max(min, valueAt() + dir * step))); },
+  };
+};
+```
+
+```python
+h.Div(
+    data.ref("_weight_ruler"),
+    data.init("el.ruler ??= app.ruler(el, {min: 30, max: 200, step: 0.1}, v => $weight_kg = v)"),
+    data.effect("el.ruler.show($weight_kg)"),
+    *ticks,
+)
+h.Button({"type": "button"}, data.on("click", "$_weight_ruler.ruler.step(1)"), "+")
+```
+
+`app/assets.py` lists the files: `SCRIPTS = (ASSETS.href("js/ruler.js"), ...)`. The shell loads each one with `h.Script({"src": src, "defer": True})` before `ModuleScript(DATASTAR_JS)`, so `app` exists before Datastar runs the first `data-init`.
+
+Rules:
+
+- **Datastar adds the listeners that the app reacts to.** `data.on("click", ...)`; `target="window"`, `"document"`, or `"outside"` for a page-wide event. Datastar removes them when the element leaves. A file never calls `addEventListener` on `window` or `document`. A factory may listen on its own `el` and observe it (`ResizeObserver`): those die with the element.
+- **Signals carry state between JavaScript and HTML.** A function returns a value (`$t = app.clock.now()`) or calls a callback the expression gives it (`v => $weight_kg = v`). HTML renders the result with `data.show`, `data.class_`, `data.attr`, `data.text`. JavaScript does not build HTML: Tailwind does not scan `static/js/`, and a repaint would remove it.
+- **A repaint copies every attribute from the server HTML.** An element whose `style` or `class` JavaScript writes (a drag offset) gets `data.preserve_attr("style class")`.
+- **`data.init` runs again when its text changes.** Keep the text constant (no server values in it) and write `el.x ??= app.x(el, ...)`, so the factory runs once per element.
+- **Another element is a ref, not an id lookup.** `data.ref("_edit_dialog")` on the dialog, `$_edit_dialog.showModal()` on the button. A ref name starts with `_`, so the element is not sent to the server.
+- **Server values reach JavaScript as signals or `data-*` attributes.** When an expression needs a literal, use `string_literal` from `stario.datastar.format`. Never build JavaScript with an f-string or `.replace`.
+- **The only inline `<script>` is the theme restore in `<head>`.** It must run before the first paint (skill `stario-tailwind-daisyui`).
+- **A file name is a namespace.** `static/js/hub.js` defines `app.hub`. Top-level `const`, `let`, and `function` are shared by every classic script on the page, so helpers live inside the namespace.
+- **A namespace is a plain object literal.** Its methods call each other with `this`; state is a property. No IIFE that returns an object, no method that only forwards to an inner function. A factory (`app.ruler(el, ...)`) exists only when each element needs its own state.
+- **Write the logic, not the defence.** No fallback for a `data-*` value the server always renders, no `if (!el) return` for an element the expression just passed, no `try` around an API the app's browsers have. The server validates input again.
+- **UI state that a click toggles is a local signal.** A QR panel, a "Copied" label, a pressed button: `$_qr = !$_qr` with `data.show("$_qr")` and `data.attr("aria-pressed", "$_qr")`, not `el.hidden = ...` in a file.
+
+`tests/test_js.py` collects every `app.<name>.<method>` in `app/**/*.py` and asserts that `static/js/<name>.js` defines it, so a rename fails `just check`.
+
 ## Storage
 
 Choose with the developer. Do not add a database the app does not need.
@@ -158,6 +215,12 @@ async def test_paint_repaints_the_stream(client):
 | UI state in signals when HTML can hold it | `<dialog>`, `<details>`, `preserve_attr` |
 | A signal that holds a row or the user | the store, the cookie |
 | Module-level lists or dicts as state | an object built in `bootstrap` |
+| JavaScript in a Python string, `h.Script(SafeString(...))` | a function in `static/js/<name>.js` |
+| `window.myThing = ...`, `if (window.x) return` guards | `app.<name>` in its own file |
+| `addEventListener` on `window` or `document` | `data.on(..., target="window")` |
+| `document.getElementById(...)` in an expression | `data.ref("_name")` and `$_name` |
+| JavaScript that filters a JSON copy of server data | a `GET` that patches its part |
+| JavaScript that builds HTML | server HTML plus `data.show` / `data.class_` |
 
 ## Cursor Cloud specific instructions
 

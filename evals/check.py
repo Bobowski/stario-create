@@ -167,6 +167,27 @@ res["environ_outside_config"] = sorted(
 res["new_js_files"] = sorted(
     str(p.relative_to(run)) for p in (run / "static").rglob("*.js") if p.name != "datastar.js"
 )
+_app_js = {
+    str(p.relative_to(run)): src(p)
+    for p in (run / "static").rglob("*.js")
+    if p.name != "datastar.js"
+}
+res["js_in_python"] = sorted(
+    f
+    for f, s in files.items()
+    if re.search(r"addEventListener\(|getElementById\(|window\.\w+\s*=[^=]|=>\s*\{", s)
+)
+res["inline_script"] = sorted(
+    f for f, s in files.items() if re.search(r"h\.Script\(\s*SafeString", s)
+)
+res["js_global_listeners"] = sorted(
+    f for f, s in _app_js.items() if re.search(r"\b(window|document)\.addEventListener\(", s)
+)
+res["js_builds_html"] = sorted(
+    f
+    for f, s in _app_js.items()
+    if re.search(r"createElement\(|\.innerHTML\s*=|insertAdjacentHTML", s)
+)
 res["module_mutable_state"] = sorted(
     f
     for f, s in files.items()

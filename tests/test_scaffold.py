@@ -292,3 +292,20 @@ def test_cli_sync_rewrites_cloud_install_keeps_environment(tmp_path: Path):
     assert install.read_text() == template("cursor/cloud-install.sh").read_text()
     assert ".cursor/cloud-install.sh" in out.stdout
     assert env_path.read_text() == '{"snapshot": "keep-me"}\n'
+
+
+def test_scaffold_writes_test_js(tmp_path: Path):
+    scaffold_files(tmp_path, "demo")
+    test_js = tmp_path / "tests/test_js.py"
+    assert test_js.exists()
+    assert test_js.read_text() == template("tests/test_js.py.tmpl").read_text()
+
+
+def test_scaffold_shell_loads_scripts(tmp_path: Path):
+    scaffold_files(tmp_path, "demo")
+    assets = (tmp_path / "app/assets.py").read_text()
+    assert "SCRIPTS" in assets
+    shell = (tmp_path / "app/common/shell.py").read_text()
+    assert 'h.Script({"src": src, "defer": True}) for src in SCRIPTS' in shell
+    assert "ModuleScript(DATASTAR_JS)" in shell
+    assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")

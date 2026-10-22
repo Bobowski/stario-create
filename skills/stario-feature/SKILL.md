@@ -339,8 +339,7 @@ h.Main(
                     {"type": "button"},
                     data.on(
                         "click",
-                        f"$editing_id = {n.id}; $title = {string_literal(n.title)}; "
-                        "document.getElementById('edit').showModal()",
+                        f"$editing_id = {n.id}; $title = {string_literal(n.title)}; $_edit.showModal()",
                     ),
                     "Edit",
                 ),
@@ -350,11 +349,10 @@ h.Main(
     ),
     h.Dialog(
         {"id": "edit"},
+        data.ref("_edit"),
         data.preserve_attr("open"),
         h.Form(
-            data.on(
-                "submit", at.post(RENAME.href()) + "; el.closest('dialog').close()", prevent=True
-            ),
+            data.on("submit", at.post(RENAME.href()) + "; $_edit.close()", prevent=True),
             h.Input({"type": "text"}, data.bind("title")),
             h.Button({"type": "submit"}, "Save"),
         ),
@@ -379,7 +377,7 @@ def rename(notes: Notes, relay: Relay[str]):
     return handler
 ```
 
-`string_literal` comes from `stario.datastar.format`. A repaint keeps the dialog open (`preserve_attr`) and keeps what the user typed (`if_missing=True`). `type(...) is not int` also rejects `true`, which `isinstance` accepts. An add form on the same page binds its own signal (`new_title`), not the dialog's `title`.
+`string_literal` comes from `stario.datastar.format`. `data.ref("_edit")` puts the dialog element in the local signal `$_edit`, so no expression looks it up by id. A repaint keeps the dialog open (`preserve_attr`) and keeps what the user typed (`if_missing=True`). `type(...) is not int` also rejects `true`, which `isinstance` accepts. An add form on the same page binds its own signal (`new_title`), not the dialog's `title`.
 
 ## Remove a screen
 
