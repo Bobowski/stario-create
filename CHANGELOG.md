@@ -4,6 +4,14 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.2.0
+
+### Changed
+
+- `new` no longer writes a `Dockerfile`. Yard detects a Stario app from
+  `pyproject.toml` and `uv.lock` and writes the Containerfile itself. `new`
+  still writes `.dockerignore`, which that build uses.
+
 ## 5.1.3
 
 ### Changed
