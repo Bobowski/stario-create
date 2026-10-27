@@ -35,6 +35,11 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `h.Script(SafeString(`) and, in `static/js`, window or document
   listeners and HTML building.
 - README and `llms.txt` list `stario-client` with the other skills.
+- The guide proves a live update from the next SSE event (`timeout=2` on
+  `client.stream`, so a missing repaint fails in two seconds). Playwright, in
+  the `stario-feature` skill, checks that Datastar morphed that HTML. A
+  computer-use session is for a visual judgment the assertion cannot make.
+  The guide stays under 12,000 bytes.
 
 ## 5.2.0
 

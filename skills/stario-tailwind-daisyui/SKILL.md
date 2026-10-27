@@ -186,4 +186,4 @@ Rules:
 
 After you change a class, run `just css` and commit `static/css/output.css`. `just css` gets the binary on any machine, a Cloud Agent included.
 
-The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild.
+The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild. A live morph uses the Playwright script in `stario-feature`. Computer use is for whether the theme looks right.
