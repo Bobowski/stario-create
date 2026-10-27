@@ -37,7 +37,7 @@ async def bootstrap(app: App, span: Span):
         yield
 ```
 
-`async with` claims the file, runs `schema` once in one transaction, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`, so two servers never write one file. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper module goes around it.
+`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR`, or `./data` on a laptop. Yard sets `PROJECT_DATA_DIR=/data`, a host directory that survives every deploy, so the database survives too. A second file, such as an upload, also goes in `config.data_dir`. `async with` claims the file, runs `schema` once in one transaction, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`, so two servers never write one file. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper module goes around it.
 
 ## Tables: `id` plus `data`
 
@@ -166,7 +166,7 @@ tx.execute(
 
 ## Tests
 
-The scaffold's `tests/conftest.py` points `APP_DB_PATH` at `tmp_path`, and `Config.from_env()` runs inside `bootstrap`, so each test gets its own file. A live page still uses the stream test in `AGENTS.md`. That is the proof. Do not open a browser for a write.
+The scaffold's `tests/conftest.py` points `PROJECT_DATA_DIR` at `tmp_path`, and `Config.from_env()` runs inside `bootstrap`, so each test gets its own file. A live page still uses the stream test in `AGENTS.md`. That is the proof. Do not open a browser for a write.
 
 ## Rules
 
