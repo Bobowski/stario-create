@@ -4,6 +4,26 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.3.3
+
+### Added
+
+- The guide allows a `POST` for a private read when the input is too long
+  for a URL; it still changes no state and keeps nothing.
+- The guide requires a busy indicator on every button that sends a
+  command: `data.indicator("_saving")` and `data.attr("disabled",
+  "$_saving")`. The stario-feature examples show it.
+- `stario-feature`'s API card gains `c.span`, the `datastar-request`
+  header check, `STARIO_HOST`/`STARIO_PORT`, `data.on` modifiers,
+  `data.persist`, and `stario.markup.svg` — all verified against stario
+  5.2.0.
+- `stario-litewriter` gains `## API at a glance`: LiteWriter open/close,
+  write/push/submit, query/one/value and their async forms, `watch`, and
+  `apsw.ConstraintError` — verified against litewriter 0.3.2.
+- `evals/check.py` reports `private_posts`: a non-GET handler that
+  renders without mutating is a private read, not a bad command.
+  `evals/summary.py` shows it as `priv`.
+
 ## 5.3.2
 
 ### Added

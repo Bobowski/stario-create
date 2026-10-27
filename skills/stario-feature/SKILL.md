@@ -34,7 +34,10 @@ app.create_task(coro)              # tracked task; app.shutting_down is True whi
 
 c.req.query  c.req.cookies         # request maps; c.match.params are the path captures
 c.state                            # dict that middleware fills; c.app is the App
+c.span                             # this request's trace span
 c.alive(source)                    # async iterator until disconnect or shutdown
+c.req.headers.get("datastar-request")    # truthy for Datastar actions; pick
+                                         # SSE(w).navigate(url) over w.redirect
 
 w.html(render(...))   w.text("why", status=400)   w.empty()   w.json(value)
 w.redirect(url, status=303)        # one answer per handler
@@ -48,8 +51,12 @@ data.signals({...}, if_missing=True)   data.bind("title")   data.indicator("_sav
 data.on("click", at.post(ADD.href()), prevent=True)
 data.init(at.get(LIVE.href(), retry="always"))
 data.text(e) data.show(e) data.attr("disabled", e) data.class_("on", e)
-data.preserve_attr("open")  data.ignore_morph()
+data.preserve_attr("open")  data.ignore_morph()  data.persist()  # survives reload
 at.get(url, retry="always")   at.post(url)
+data.on("input", expr, debounce="200ms")         # also throttle, once, target=
+from stario.markup import svg                    # svg.Svg, svg.Circle, svg.Path, ...
+
+STARIO_HOST / STARIO_PORT                        # ServerConfig.from_env, 127.0.0.1 / 8000
 
 h.Div({"id": "app"}, h.P("hi"))    # every tag is h.Name; first arg may be an attrs
                                    # dict; None children are skipped
@@ -282,7 +289,12 @@ def render(todos: list[Todo], view: TodosView, tab: str) -> HtmlElement:
             h.Form(
                 data.on("submit", at.post(ADD_TODO.href()), prevent=True),
                 h.Input({"type": "text", "required": True, "maxlength": 200}, data.bind("title")),
-                h.Button({"type": "submit"}, "Add"),
+                h.Button(
+                    {"type": "submit"},
+                    data.indicator("_saving"),
+                    data.attr("disabled", "$_saving"),
+                    "Add",
+                ),
                 h.P({"role": "alert"}, data.show("$_error"), data.text("$_error")),
             ),
             h.Nav(
@@ -298,6 +310,8 @@ def render(todos: list[Todo], view: TodosView, tab: str) -> HtmlElement:
                         h.Button(
                             {"type": "button", "aria-pressed": "true" if t.done else "false"},
                             data.on("click", at.post(TOGGLE_TODO.href(t.id))),
+                            data.indicator("_saving"),
+                            data.attr("disabled", "$_saving"),
                             t.title,
                         )
                     )
@@ -568,7 +582,12 @@ h.Dialog(
     h.Form(
         data.on("submit", at.post(RENAME_TODO.href()) + "; $_edit.close()", prevent=True),
         h.Input({"type": "text", "required": True}, data.bind("new_title")),
-        h.Button({"type": "submit"}, "Save"),
+        h.Button(
+            {"type": "submit"},
+            data.indicator("_saving"),
+            data.attr("disabled", "$_saving"),
+            "Save",
+        ),
     ),
 )
 ```

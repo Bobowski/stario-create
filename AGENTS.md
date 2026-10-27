@@ -4,7 +4,7 @@ How to build a Stario app, unless the developer asks for something else.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (add or change a page, complete files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
+Skills in `.agents/skills/`: `stario-feature` (a page, complete files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
 
 Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure.
 
@@ -37,7 +37,7 @@ tests/test_<page>.py
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})` builds the link. No `url_for`, no `app.get`.
 - A literal segment beats a parameter, in any order: `/rooms/live` and `/rooms/{room_id}` both work.
-- `c.match.params`, `c.req.query`, `c.req.cookies`; middleware fills `c.state`. Middleware is `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
+- `c.match.params`, `c.req.query`, `c.req.cookies`; `c.state` is filled by middleware `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`, never bare `asyncio.create_task`.
 - One process, one event loop. Shared state is an object built in `bootstrap`. No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 
@@ -48,7 +48,7 @@ The path names the resource. The query holds how this tab views it: sort, filter
 Sort every user action:
 
 - **Go somewhere**, including a new view: `<a href>`.
-- **A result only this tab needs** while the user types (search as you type, a preview): a `GET` that reads the signals and answers `SSE(w).patch_elements(part)`. It changes no state and keeps nothing.
+- **A result only this tab needs** while the user types (search as you type, a preview): a `GET` that reads the signals and answers `SSE(w).patch_elements(part)`, or a `POST` when the input is too long for a URL. It changes no state and keeps nothing.
 - **Change state** (add, edit, delete, start a job): a command, `POST`.
 
 A page whose state cannot change while it is open is static: `w.html(render(...))`. A page that shows shared state that can change is live:
@@ -60,7 +60,7 @@ POST /board/...    a command: read, validate, reply, execute
 ```
 
 1. `GET /board` renders `data.signals({"tab": uuid.uuid7().hex}, if_missing=True)` and `data.init(at.get(BOARD_LIVE.href(query=view.query()), retry="always"))`.
-2. The stream validates `tab`, subscribes, sends `render(...)`, then sends it again after each event.
+2. The stream validates `tab`, subscribes, sends `render(...)`, then again after each event.
 3. The stream is the only thing that sends HTML. A command never answers with HTML: other tabs would not see it.
 
 The stream follows one source. Rows only: `db.watch(query)` (skill `stario-litewriter`). Rows and messages for one tab: `relay.subscribe(CHANGED, f"tab.{tab}", latest=True)` on the one `Relay[dict]`. Subscribe before the first render. Subjects are constants in `handlers.py`.
@@ -80,7 +80,7 @@ The signals are the state of one tab. A command that tells its tab something aft
 
 The page stops empty input before it is sent: `required`, `maxlength`, `data.attr("disabled", ...)`. The server checks again.
 
-Slow work (a model call, a download, a report) is a job. The command adds it as `queued`, replies, publishes, and runs `c.app.create_task(self.run(job, c.span.step("report.run")))`. `run` works inside `with span:`, sets `running`, then `done` or `failed`, and publishes each change. On shutdown, Stario waits `STARIO_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s), then cancels the task. A job with steps checks `c.app.shutting_down` between them. On `CancelledError`, `run` marks the job failed and raises again. Blocking CPU work (a password hash) runs in `await asyncio.to_thread(fn, ...)`. A delay or a client is a `Config` field.
+Slow work (a model call, a download) is a job. The command adds it as `queued`, replies, publishes, and runs `c.app.create_task(self.run(job, c.span.step("report.run")))`. `run` works inside `with span:`, sets `running`, then `done` or `failed`, and publishes each change. On shutdown, Stario waits `STARIO_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s), then cancels the task. A job with steps checks `c.app.shutting_down` between them. On `CancelledError`, `run` marks the job failed and raises again. Blocking CPU work (a password hash) runs in `await asyncio.to_thread(fn, ...)`. A delay or a client is a `Config` field.
 
 ## Render from state
 
@@ -96,7 +96,7 @@ The server renders the state. Signals carry what the user types or picks, the ta
 - `data.bind("title")` ties an input to a signal. A leading `_` (`_error`) makes a signal local: Datastar does not send it.
 - One signal per field and one for the row being edited (`editing_id`), not one per row. Validate `editing_id` like any input.
 - The resource id is in the path, the view is in the query, the user is in a signed cookie (skill `stario-auth`). None of them is a signal.
-- `data.indicator("_saving")` is true while that request is in flight: `data.attr("disabled", "$_saving")`.
+- Every button that sends a command shows it is busy: `data.indicator("_saving")` and `data.attr("disabled", "$_saving")`.
 - A `<dialog>` or `<details>` holds its own open state: add `data.preserve_attr("open")`. A subtree the client owns gets `data.ignore_morph()`.
 
 ## Storage
@@ -127,7 +127,7 @@ class BoardPage:
 
 Where code goes:
 
-- Logic that one route needs stays in that method, even when it is 40 lines.
+- Logic that one route needs stays in that method.
 - A read or a write is a function in `data.py`: `list_*`, `get_*` (one or `None`), `add_*`, `set_*`, `remove_*`.
 - A rule with no URL that several pages use is a plain function in `app/<name>/`.
 

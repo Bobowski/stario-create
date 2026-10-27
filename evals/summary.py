@@ -21,6 +21,7 @@ cols = [
     ("init", lambda d: d["init_live_retry_always"]),
     ("alive", lambda d: d["c_alive"]),
     ("paints", lambda d: ",".join(d["commands_that_render"]) or "-"),
+    ("priv", lambda d: ",".join(d.get("private_posts", [])) or "-"),
     ("store", lambda d: d["store"]),
     ("task", lambda d: d["create_task"]),
     ("ind", lambda d: d["indicator"]),
