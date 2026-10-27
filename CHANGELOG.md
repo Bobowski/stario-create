@@ -28,11 +28,13 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `stario-feature`'s edit dialog uses `data.ref` (`$_edit.showModal()`),
   not a `getElementById` in the expression.
 - `stario-tailwind-daisyui` keeps the one-line theme restore as the only
-  inline script and moves the toggle to `theme.js` (`app.theme`).
-- `evals/check.py` probes for JavaScript in Python: `addEventListener`,
-  `getElementById`, `window` writes and arrow bodies in `app/` strings;
-  `h.Script(SafeString(` beyond the theme restore; window/document
-  listeners and HTML building in `static/js`.
+  inline script and moves the toggle to `theme.js` (`app.theme`). Its
+  shell example loads `SCRIPTS` before Datastar, same as the scaffold.
+- `evals/check.py` probes for JavaScript in `app/**/*.py`
+  (`addEventListener`, `getElementById`, `window` writes, arrow bodies,
+  `h.Script(SafeString(`) and, in `static/js`, window or document
+  listeners and HTML building.
+- README and `llms.txt` list `stario-client` with the other skills.
 
 ## 5.2.0
 

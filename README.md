@@ -22,7 +22,7 @@ just check   # lint, format, types, tests — run before done
 - The feature-folder layout with one static `home` screen.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
-- The four skills installed into `.agents/skills/` and linked from `.claude/skills/`.
+- The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
@@ -78,6 +78,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected screens. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, `watch` repaints a live screen from a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
+| `stario-client` | The screen needs JavaScript: a file in `static/js/<name>.js` that Python calls as `app.<name>`. |
 
 `npx skills add bobowski/stario-create` also works — it reads the `skills/` tree at this repo root.
 
