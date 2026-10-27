@@ -1,12 +1,12 @@
 # Stario app guide
 
-How to build a Stario app. This is the default; when the developer asks for something else, do that. App notes live in `## This app` at the end.
+How to build a Stario app. This is the default; when the developer asks for something else, do that.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (add or remove a screen), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS).
+Skills in `.agents/skills/`: `stario-feature` (add or remove a screen, complete example files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
 
-Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure. A live update is proven by the next SSE event in that run.
+Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure.
 
 ## Layout
 
@@ -14,7 +14,7 @@ Before you call work done, run `just check` (ruff, ruff format, pyright, pytest)
 app/
   main.py           bootstrap: config, shared objects, register every feature
   config.py         frozen Config dataclass, from_env(); every setting and secret
-  assets.py         ASSETS, STYLE_CSS, DATASTAR_JS (files in static/)
+  assets.py         ASSETS, STYLE_CSS, DATASTAR_JS
   common/shell.py   page(title, body): the <html> document, @baked
   features/<screen>/
     urls.py         Route values; imports only stario
@@ -30,12 +30,12 @@ tests/test_<screen>.py
 - `common/` holds what every screen shares (the shell, the session), not borrowed views or queries. Two screens with similar HTML keep their own copies.
 - `app/db.py` exists only when several features share one connection object.
 - The tree serves the problem: split a file when it is hard to read; keep imports one way.
-- No `.js` files: a Datastar expression on the element covers small UI behaviour.
+- JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string (skill `stario-client`).
 
 ## Stario rules
 
 - Not ASGI: no Uvicorn, FastAPI, or response objects. `python -m app.main` runs `asyncio.run(serve(bootstrap))`.
-- `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register features, `yield`, clean up. The scaffold adds `app.use("/", same_origin(), security_headers())`: cross-site commands get 403, responses get baseline headers. Routes are fixed after `bootstrap`.
+- `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register features, `yield`, clean up. The scaffold adds `app.use("/", same_origin(), security_headers())` (`stario.http`): cross-site commands get 403, and responses get baseline headers. Routes are fixed after `bootstrap`.
 - A handler is `async def handler(c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)` registers it; `ROUTE.href(room_id)` builds the link. No `url_for`, no `app.get`.
 - `c.match.params`, `c.req.query`, `c.req.cookies`; `c.state` is filled by middleware. Middleware is `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
@@ -78,13 +78,13 @@ def board_live(board: Board, relay: Relay[str]):
     return handler
 ```
 
-Subscribe before the first render. `latest=True` keeps the newest event per subject. Subjects are dotted strings (`"room.*"` matches every room). With litewriter, `db.watch(query)` replaces `Relay`.
+Subscribe before the first render. `latest=True` keeps only the newest event per subject: a repaint needs no backlog. Subjects are dotted strings at the top of `handlers.py`; `"room.*"` matches every room. With litewriter, `db.watch(query)` replaces `Relay` for row changes.
 
 A command is a Datastar action: `data.on("click", at.post(ROUTE.href()))`, or `data.on("submit", at.post(ROUTE.href()), prevent=True)` on a `<form>`. A page with inputs uses Datastar, not `<form method="post">`.
 
 Bad input: empty or unchanged input replies 204 and does nothing. A domain conflict (name taken) is written to state and rendered. Malformed or forged input (bad format, unknown id, another user's row) gets `w.text("why", status=400)` (or 404, 403) and `return`.
 
-Slow work (a model call, a download, a report): add a job (`queued`), reply 204, publish, and run `c.app.create_task(run(job))`. The task sets `running`, then `done` or `failed`, and publishes each change. Never `await` it in the command. The delay is a `Config` field, so tests run fast.
+Slow work (a model call, a download, a report): the command adds a job with status `queued`, replies 204, publishes, and runs `c.app.create_task(run(job))`. The task sets `running`, then `done` or `failed`, and publishes each change. Never `await` slow work in a command. The delay or the client is a `Config` field.
 
 A command that ends on another screen replies `SSE(w).navigate(OTHER.href())`. A 303 to a Datastar request does not change the URL.
 
@@ -103,13 +103,13 @@ Morphing HTML is the default: the server renders the state. Signals carry what t
 - Use a signal for an input, and for client-only state the HTML cannot hold. Stario passes signal names through unchanged; a leading `_` (`_menu_open`) makes a signal local — Datastar does not send it, so it is not in `read_signals`.
 - `data.bind("title")` ties an input to a signal. `await read_signals(c.req)` returns the sent signals. Validate each one.
 - One `data.signals({...}, if_missing=True)` per page, on its top element (on a live page, the one that opens the stream), so a repaint keeps what the user typed.
-- Keep the count small: one signal per field (`title`) and one for the row being edited (`editing_id`), not one per row or cell. The command validates `editing_id` like any input. Correctness comes first.
+- Keep the count small: one signal per field (`title`) and one for the row being edited (`editing_id`), not one per row or cell. The command validates `editing_id` like any input.
 - A screen's resource id lives in its URL. The signed-in user lives in a signed cookie (skill `stario-auth`), never in a signal.
 - How one tab views shared state (sort, filter, page) lives in the URL query. Links change it; the page and the stream both read `c.req.query`. A reload or a shared link keeps the view.
 - A command may clear an input it consumed: `SSE(w).patch_signals({"title": ""})` instead of `w.empty()`.
 - `data.indicator("_saving")` makes `$_saving` true while that request is in flight. Use it like any signal: `data.attr("disabled", "$_saving")`, `data.class_("loading", "$_saving")`.
 
-UI state must survive a morph, because a repaint can arrive at any moment. A `<dialog>` or `<details>` holds its own open state; add `data.preserve_attr("open")`. The server never renders a user-opened dialog as open. A subtree the client owns gets `data.ignore_morph()`.
+UI state must survive a morph. A `<dialog>` or `<details>` holds its own open state; add `data.preserve_attr("open")`. The server never renders a user-opened dialog as open. A subtree the client owns gets `data.ignore_morph()`.
 
 ## Storage
 
@@ -118,7 +118,7 @@ Choose with the developer. Do not add a database the app does not need.
 - No persistence: an object built in `bootstrap`.
 - SQLite: litewriter is the recommended default (skill `stario-litewriter`). Plain `sqlite3` is fine for a small app.
 - Every `SCHEMA` statement is `IF NOT EXISTS`. The database path is a `Config` field; tests point it at `tmp_path`.
-- A host data directory (Yard sets `PROJECT_DATA_DIR=/data`) must hold the database, or a redeploy loses it.
+- A host data directory (Yard sets `PROJECT_DATA_DIR=/data`) must hold the database, or a redeploy loses it. Reading it in `Config` is worth it for an app that deploys.
 
 ## Code shape
 
@@ -129,9 +129,7 @@ Choose with the developer. Do not add a database the app does not need.
 
 ## Tests
 
-Tests run the production `bootstrap` through `TestClient`. Each screen: the page loads; a command repaints the stream; malformed input returns 400. `timeout=2` on `client.stream` raises `TimeoutError` in two seconds when no repaint comes.
-
-The next SSE event is the live update: assert the HTML that changed. Two `client.stream` calls are two tabs. Playwright (`stario-feature`, against `just dev`) checks that Datastar morphed it. Computer use is for a look the script cannot make, after this test is green.
+Tests run the production `bootstrap` through `TestClient`. Each screen: the page loads; a command repaints the stream; malformed input returns 400. The next SSE event is the changed HTML (`timeout=2` on `client.stream`; two calls are two tabs). Playwright (`stario-feature`) checks the morph.
 
 ```python
 async def test_paint_repaints_the_stream(client):
@@ -161,6 +159,10 @@ async def test_paint_repaints_the_stream(client):
 | UI state in signals when HTML can hold it | `<dialog>`, `<details>`, `preserve_attr` |
 | A signal that holds a row or the user | the store, the cookie |
 | Module-level lists or dicts as state | an object built in `bootstrap` |
+
+## Cursor Cloud specific instructions
+
+Install is `.cursor/cloud-install.sh`. Use computer use only when the stream test cannot prove the change.
 
 ## This app
 

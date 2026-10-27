@@ -138,7 +138,9 @@ session = Session(secret=config.session_secret, secure=not config.dev)
 app.use("/", session.attach())
 app.use("/app", session.require(LOGIN.href()))
 register_login(app, conn, session)
-register_board(app, conn, relay)  # BOARD = Route("GET /app/board"): protected screens live under /app
+register_board(
+    app, conn, relay
+)  # BOARD = Route("GET /app/board"): protected screens live under /app
 ```
 
 The scaffold's `app.use("/", same_origin(), security_headers())` must stay: `same_origin()` answers 403 to a `POST`, `PUT`, `PATCH`, or `DELETE` that another site sent. With the `samesite="lax"` cookie, a command cannot be forged from another page. An app without it adds `same_origin()` before the session middleware. `app.use("/", ...)` runs before every route, so `c.state["user"]` is always set. `app.use("/app", ...)` runs before every route under `/app`, including the 404/405 answers. `app.use` and `app.add` work in any order; the router composes middleware when the app compiles.
@@ -322,6 +324,8 @@ h.Button({"type": "button"}, data.on("click", at.post(LOGOUT.href())), "Sign out
 ```
 
 ## Tests
+
+Prove login with `TestClient`. Do not open a browser for a sign-in or a redirect.
 
 `tests/conftest.py` sets the secret and the seed user. `bootstrap` creates that user on the empty test database.
 

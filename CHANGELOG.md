@@ -6,12 +6,98 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## Unreleased
 
+### Added
+
+- A new skill, `stario-client`: server first, then HTML and CSS, then a
+  Datastar attribute, then a function in `static/js/<name>.js`. Each file
+  is a classic script that defines one `app.<name>` namespace — a plain
+  object literal, or a per-element factory only when the element needs
+  its own state. Datastar adds every page-wide listener with
+  `data.on(..., target="window")`.
+
 ### Changed
 
+- The guide drops "No `.js` files". JavaScript lives in
+  `static/js/<name>.js`, never in a Python string; the guide points to
+  `stario-client` and stays under the 12,000-byte budget.
+- `assets.py` gets `SCRIPTS`: a tuple of `ASSETS.href("js/<name>.js")`.
+  The shell loads each one with `h.Script({"src": src, "defer": True})`
+  before `ModuleScript(DATASTAR_JS)`.
+- `new` writes `tests/test_js.py`: every `app.<name>.<method>` call in
+  `app/**/*.py` must have its function in `static/js/<name>.js`.
+- `stario-feature`'s edit dialog uses `data.ref` (`$_edit.showModal()`),
+  not a `getElementById` in the expression.
+- `stario-tailwind-daisyui` keeps the one-line theme restore as the only
+  inline script and moves the toggle to `theme.js` (`app.theme`). Its
+  shell example loads `SCRIPTS` before Datastar, same as the scaffold.
+- `evals/check.py` probes for JavaScript in `app/**/*.py`
+  (`addEventListener`, `getElementById`, `window` writes, arrow bodies,
+  `h.Script(SafeString(`) and, in `static/js`, window or document
+  listeners and HTML building.
+- README and `llms.txt` list `stario-client` with the other skills.
 - The guide proves a live update from the next SSE event (`timeout=2` on
   `client.stream`, so a missing repaint fails in two seconds). Playwright, in
   the `stario-feature` skill, checks that Datastar morphed that HTML. A
   computer-use session is for a visual judgment the assertion cannot make.
+  The guide stays under 12,000 bytes.
+
+## 5.2.0
+
+### Changed
+
+- `new` no longer writes a `Dockerfile`. Yard detects a Stario app from
+  `pyproject.toml` and `uv.lock` and writes the Containerfile itself. `new`
+  still writes `.dockerignore`, which that build uses.
+
+## 5.1.3
+
+### Changed
+
+- The app Dockerfile copies uv 0.13.5. uv below 0.13.4 still trusts the
+  compromised emSign root while it downloads packages.
+
+## 5.1.2
+
+### Added
+
+- `stario_create.data_dir()` returns the folder with `AGENTS.md`,
+  `AGENTS-api.md`, `llms.txt`, and `skills/`. A site that serves these
+  files reads them from there.
+
+## 5.1.1
+
+### Added
+
+- The `justfile` has a `sync` recipe: `uvx stario-create@latest sync`.
+- Cloud Agent files: `.cursor/environment.json` and `.cursor/cloud-install.sh`.
+  `new` writes them. `sync` writes a missing `environment.json` and keeps
+  `cloud-install.sh` current. The install script puts `uv`, Python 3.14, and
+  `just` on the disk.
+- `.cursor/cloud-install.sh` installs the dependencies from `uv.lock`
+  (`uv sync --all-groups --all-extras --locked`, with a fresh resolve when the lock is
+  stale) and runs `just tailwind` when the app has that recipe.
+- The guide has a `Cursor Cloud specific instructions` section. The stream
+  test is the proof. Use computer use only when that cannot prove the change.
+- `stario-feature`, `stario-auth`, and `stario-litewriter` tell the agent to
+  prove a change with `TestClient`, not a browser. The feature skill now has
+  the live-screen stream test.
+- An app profile: `[tool.stario-create] profile = "api"` in the app's
+  `pyproject.toml` gives the app the short JSON API guide and no skills.
+  `sync` removes the skills the profile excludes.
+- `sync --check` also reports agent files that git ignores and a `check`
+  recipe that does not run pytest.
+- `new` writes a `Dockerfile` and a `.dockerignore`. The image installs
+  from `uv.lock` and listens on `0.0.0.0:8000`.
+
+### Changed
+
+- The guide no longer says how to deploy: no "push `main`", no "do not open
+  a pull request". That workflow belongs in the app's `## This app` notes.
+- `sync` always refreshes `.cursor/cloud-install.sh`; the file is tool-owned.
+  `.cursor/environment.json` is still only written when missing.
+- The Tailwind skill puts a `tailwind` recipe in the `justfile`. `css` and
+  `css-watch` run it first. It downloads the pinned binary once per version
+  into `~/.cache/tailwindcss/`.
 
 ## 5.1.0
 

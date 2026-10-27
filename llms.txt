@@ -6,7 +6,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 - [AGENTS.md](https://stario.dev/AGENTS.md): the app guide. Copy it into every Stario repo. Layout, invariants, the CQRS default, render from state, signals, code shape, tests, common mistakes.
 - [stario-create](https://github.com/bobowski/stario-create): `uvx stario-create new my-app` creates a runnable app with the guide, the skills, and a `justfile`.
-- [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the four skills in one file, for tools that want more context.
+- [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the skills in one file, for tools that want more context.
 - [The Stario way](https://stario.dev/docs/explanation/the-stario-way): why Stario is shaped this way.
 
 ## Skills (optional stacks)
@@ -15,6 +15,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 - [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, a login screen, protected screens.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
+- [stario-client](https://stario.dev/skills/stario-client/SKILL.md): where JavaScript goes, and how Python calls `app.<name>`.
 
 ## Docs
 

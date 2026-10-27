@@ -11,17 +11,12 @@ Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The sta
 
 ```bash
 mkdir -p frontend/src static/css
-# Pin the releases: set the tags you tested (see each project's releases page).
-TW=v4.x.y   # https://github.com/tailwindlabs/tailwindcss/releases
-DU=v5.x.y   # https://github.com/saadeghi/daisyui/releases
-curl -fL -o tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/$TW/tailwindcss-macos-arm64"
-chmod +x tailwindcss
-# DaisyUI bundles for the standalone CLI
+DU=v5.x.y   # pin the DaisyUI tag you tested: https://github.com/saadeghi/daisyui/releases
 curl -fL -o frontend/daisyui.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui.mjs"
 curl -fL -o frontend/daisyui-theme.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui-theme.mjs"
 ```
 
-Linux: `tailwindcss-linux-x64` or `tailwindcss-linux-arm64`. Intel Mac: `tailwindcss-macos-x64`. Pinned tags make every machine build the same CSS. A repo with one shared binary links it instead: `ln -s ../../tools/tailwindcss tailwindcss`. Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
+The `tailwind` recipe in the `justfile` gets the Tailwind binary (see Build). Add `tailwindcss` to `.gitignore`. Commit the two `.mjs` files and `static/css/output.css`.
 
 ## `frontend/src/input.css`
 
@@ -59,15 +54,37 @@ A custom theme:
 
 ## Build
 
-Add two recipes to the `justfile`:
+Add three recipes to the `justfile`. `v` pins the Tailwind tag, so every machine builds the same CSS. `just css` gets the binary when `./tailwindcss` is missing. Each version downloads once per machine into `~/.cache/tailwindcss/`.
 
 ```make
+# get the pinned Tailwind CLI; css and css-watch run this first
+tailwind:
+    #!/usr/bin/env sh
+    set -eu
+    v=v4.3.3
+    bin="$HOME/.cache/tailwindcss/$v/tailwindcss"
+    if [ "$(readlink tailwindcss 2>/dev/null)" = "$bin" ] && [ -x "$bin" ]; then exit 0; fi
+    case "$(uname -s):$(uname -m)" in
+      Darwin:arm64) a=macos-arm64 ;;
+      Darwin:x86_64) a=macos-x64 ;;
+      Linux:x86_64 | Linux:amd64) a=linux-x64 ;;
+      Linux:aarch64 | Linux:arm64) a=linux-arm64 ;;
+      *) echo "no Tailwind build for $(uname -s) $(uname -m)" >&2; exit 1 ;;
+    esac
+    if [ ! -x "$bin" ]; then
+      mkdir -p "$(dirname "$bin")"
+      curl -fL --retry 3 -o "$bin.part" "https://github.com/tailwindlabs/tailwindcss/releases/download/$v/tailwindcss-$a"
+      chmod +x "$bin.part"
+      mv "$bin.part" "$bin"
+    fi
+    ln -sfn "$bin" tailwindcss
+
 # build the stylesheet once
-css:
+css: tailwind
     ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify
 
 # rebuild the stylesheet on change; run next to `just dev`
-css-watch:
+css-watch: tailwind
     ./tailwindcss -i frontend/src/input.css -o static/css/output.css --watch
 ```
 
@@ -80,7 +97,7 @@ from stario import h
 from stario.datastar import ModuleScript, data
 from stario.markup import HtmlElement, baked, classes
 
-from app.assets import DATASTAR_JS, STYLE_CSS
+from app.assets import DATASTAR_JS, SCRIPTS, STYLE_CSS
 
 
 @baked
@@ -93,6 +110,7 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
             h.Meta({"name": "viewport", "content": "width=device-width, initial-scale=1"}),
             h.Title(title),
             h.Link({"rel": "stylesheet", "href": STYLE_CSS}),
+            *[h.Script({"src": src, "defer": True}) for src in SCRIPTS],
             ModuleScript(DATASTAR_JS),
         ),
         h.Body(classes("min-h-screen", "bg-base-100", "text-base-content"), body),
@@ -111,7 +129,7 @@ Add one line to `input.css`, so `dark:` utilities follow `data-theme` and not th
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 ```
 
-In the shell, restore the theme in `<head>`, before the first paint. A restore in `data.init` runs after Datastar loads, and a dark page flashes light first.
+In the shell, restore the theme in `<head>`, before the first paint. A restore in `data.init` runs after Datastar loads, and a dark page flashes light first. This one line is the only inline script in the app.
 
 ```python
 from stario.markup import SafeString
@@ -120,23 +138,31 @@ RESTORE_THEME = SafeString(
     "document.documentElement.dataset.theme = localStorage.getItem('theme')"
     " || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')"
 )
-TOGGLE_THEME = (
-    "const e = document.documentElement;"
-    " e.dataset.theme = e.dataset.theme === 'dark' ? 'light' : 'dark';"
-    " localStorage.setItem('theme', e.dataset.theme)"
-)
 
 # in page(): h.Head(..., h.Script(RESTORE_THEME), ...)
 h.Button(
     classes("btn", "btn-ghost", "btn-circle"),
     {"type": "button", "aria-label": "Switch theme"},
-    data.on("click", TOGGLE_THEME),
+    data.on("click", "app.theme.toggle()"),
     h.Span(classes("dark:hidden"), "Dark"),
     h.Span(classes("hidden", "dark:inline"), "Light"),
 )
 ```
 
-`data.preserve_attr("data-theme")` on `<html>` keeps the choice when the stream morphs the document.
+The toggle lives in `static/js/theme.js` (skill `stario-client`), listed in `SCRIPTS` in `app/assets.py`:
+
+```js
+window.app ??= {};
+app.theme = {
+  toggle() {
+    const root = document.documentElement;
+    root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("theme", root.dataset.theme);
+  },
+};
+```
+
+The labels follow `dark:` utilities, so no script updates them. `data.preserve_attr("data-theme")` on `<html>` keeps the choice when the stream morphs the document.
 
 ## Classes in views
 
@@ -152,9 +178,12 @@ Rules:
 - Theme colors only: `bg-base-100`, `bg-base-200`, `text-base-content`, `bg-primary`, `text-primary-content`. No raw `bg-gray-100`. The theme stays switchable.
 - Layout with `flex`, `grid`, `gap-*`, `p-*`. No custom CSS for layout.
 - Custom CSS goes into `input.css` under `@layer components` only when a DaisyUI class does not exist. Name it after the app: `.app-stage`.
+- Tailwind scans only `app/**/*.py`. A class that only a `static/js/` file adds needs `@source "../../static/js/*.js";` in `input.css`. Better: let the HTML hold the class and toggle it with `data.class_`.
 - A modal is `<dialog class="modal">` with `data.preserve_attr("open")`. The server never renders it open.
 - A drawer on wide screens: `drawer lg:drawer-open`. The toggle is a checkbox the client owns; add `data.ignore_morph()` to the checkbox or `data.preserve_attr("checked")`.
 
 ## Checks
 
-The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. When a class does not apply, check that the literal appears in a `.py` file under `app/`, then rebuild. To see the element in a browser, use the Playwright script in `stario-feature`. Computer use is for whether the theme looks right.
+After you change a class, run `just css` and commit `static/css/output.css`. `just css` gets the binary on any machine, a Cloud Agent included.
+
+The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild. A live morph uses the Playwright script in `stario-feature`. Computer use is for whether the theme looks right.

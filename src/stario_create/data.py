@@ -23,6 +23,11 @@ def resource(name: str) -> Path:
     return Path(str(files("stario_create").joinpath("_data", name)))
 
 
+def data_dir() -> Path:
+    """The folder that holds AGENTS.md, AGENTS-api.md, llms.txt, and skills/."""
+    return resource("AGENTS.md").parent
+
+
 def template(name: str) -> Path:
     """Path to a template file: 'app/main.py.tmpl', 'screen/urls.py.tmpl'."""
     return _PACKAGE / "templates" / name
@@ -39,5 +44,13 @@ def skill_text(name: str) -> str:
     return resource(f"skills/{name}/SKILL.md").read_text()
 
 
-def guide_text() -> str:
-    return resource("AGENTS.md").read_text()
+def guide_text(profile: str = "app") -> str:
+    """The bundled guide. The "api" profile ships a shorter JSON API guide."""
+    return resource("AGENTS-api.md" if profile == "api" else "AGENTS.md").read_text()
+
+
+def profile_skills(profile: str) -> list[str]:
+    """Skill names the profile installs. The "api" profile ships none."""
+    if profile == "api":
+        return []
+    return skill_names()

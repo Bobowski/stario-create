@@ -22,22 +22,22 @@ just check   # lint, format, types, tests — run before done
 - The feature-folder layout with one static `home` screen.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
-- The four skills installed into `.agents/skills/` and linked from `.claude/skills/`.
-- A `justfile` (`dev`, `serve`, `check`, `fix`, `test`). Without `just`, the recipes are plain commands — run them directly.
+- The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
+- A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
-`new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
+`new` also writes a `.dockerignore`. It writes no `Dockerfile`: Yard detects a Stario app and writes the Containerfile itself (stario.dev/yard/what-runs). `new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
 
 ## Syncing an app
 
-Run this at the app root:
+In an app, `just sync` runs `uvx stario-create@latest sync`. Run this at the app root:
 
 ```bash
-stario-create sync           # refresh AGENTS.md and the skills
-stario-create sync --check   # exit 1 when the guide or a skill is stale
+stario-create sync           # refresh AGENTS.md, skills, and missing Cloud Agent files
+stario-create sync --check   # exit 1 when the guide, a skill, or a Cloud Agent file is stale
 ```
 
-`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It prints one line per file changed, or "up to date".
+`sync` rewrites `AGENTS.md` to the bundled guide and keeps your `## This app` notes at the end. It overwrites each `.agents/skills/<name>/SKILL.md` and relinks `.claude/skills/<name>`. It writes `.cursor/environment.json` only when it is missing — a saved snapshot id survives — and always refreshes the tool-owned `.cursor/cloud-install.sh`. With `[tool.stario-create] profile = "api"` in the app's `pyproject.toml` it installs the short JSON API guide and removes the bundled skills. It prints one line per file changed, or "up to date".
 
 ## Without the CLI
 
@@ -78,6 +78,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected screens. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, `watch` repaints a live screen from a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
+| `stario-client` | The screen needs JavaScript: a file in `static/js/<name>.js` that Python calls as `app.<name>`. |
 
 `npx skills add bobowski/stario-create` also works — it reads the `skills/` tree at this repo root.
 

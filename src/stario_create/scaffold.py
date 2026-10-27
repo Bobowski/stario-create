@@ -1,6 +1,6 @@
 """Write project files: the app skeleton and the agent files it keeps in sync.
 
-Templates live in ``templates/`` as ``*.tmpl`` files so linters never see them.
+Templates live in ``templates/``. ``*.tmpl`` files take ``$app_name``. Cloud Agent files are copied as they are.
 ``string.Template`` fills ``$app_name``. All writes are idempotent: a file that
 already holds the target content counts as kept, not created.
 """
@@ -10,11 +10,13 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import subprocess
+import tomllib
 from collections.abc import Iterable
 from pathlib import Path
 from string import Template
 
-from stario_create.data import guide_text, resource, skill_names, template
+from stario_create.data import guide_text, profile_skills, resource, skill_names, template
 
 STARIO_REQ = "stario>=5.1,<6"
 DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
@@ -29,6 +31,25 @@ class ScaffoldError(Exception):
         super().__init__(message)
         self.code = code
         self.hint = hint
+
+
+def profile(root: Path) -> str:
+    """The app profile: `[tool.stario-create] profile` in pyproject.toml.
+
+    Defaults to "app". Any value other than "app" or "api" is an error.
+    """
+    path = root / "pyproject.toml"
+    value = "app"
+    if path.is_file():
+        with path.open("rb") as f:
+            value = tomllib.load(f).get("tool", {}).get("stario-create", {}).get("profile", "app")
+    if value not in ("app", "api"):
+        raise ScaffoldError(
+            "bad-profile",
+            f"[tool.stario-create] profile is '{value}'",
+            'use "app" or "api"',
+        )
+    return value
 
 
 def check_name(name: str) -> None:
@@ -98,8 +119,11 @@ def scaffold_files(
     w("tests/__init__.py", "")
     w("tests/conftest.py", _fill("tests/conftest.py.tmpl"))
     w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
+    w("tests/test_js.py", _fill("tests/test_js.py.tmpl"))
 
     w("justfile", template("justfile").read_text())
+    w(".dockerignore", template("dockerignore").read_text())
+    created.extend(sync_cloud_env(root, force=force))
 
     guide = sync_guide(root, force=force)
     if guide is not None:
@@ -157,6 +181,33 @@ def _append_pyproject_extras(path: Path, created: list[str]) -> None:
     created.append(str(path))
 
 
+_CLOUD_ENV_JSON = ".cursor/environment.json"
+_CLOUD_INSTALL = ".cursor/cloud-install.sh"
+_CLOUD_FILES = (_CLOUD_ENV_JSON, _CLOUD_INSTALL)
+
+
+def sync_cloud_env(root: Path, *, force: bool = False) -> list[str]:
+    """Write the Cloud Agent install files.
+
+    environment.json is created only when missing: a saved snapshot id must
+    survive sync. cloud-install.sh is tool-owned, so sync rewrites it whenever
+    the content differs — no force needed.
+    """
+    written: list[str] = []
+    env = root / _CLOUD_ENV_JSON
+    if not env.is_file():
+        env.parent.mkdir(parents=True, exist_ok=True)
+        env.write_text(template("cursor/environment.json").read_text())
+        written.append(str(env))
+    install = root / _CLOUD_INSTALL
+    text = template("cursor/cloud-install.sh").read_text()
+    if not install.is_file() or install.read_text() != text:
+        install.parent.mkdir(parents=True, exist_ok=True)
+        install.write_text(text)
+        written.append(str(install))
+    return written
+
+
 def sync_guide(root: Path, *, force: bool = False) -> str | None:
     """Write the bundled guide to AGENTS.md. Returns the path, or None if current.
 
@@ -164,7 +215,7 @@ def sync_guide(root: Path, *, force: bool = False) -> str | None:
     without that section needs `force`.
     """
     path = root / "AGENTS.md"
-    bundled = guide_text()
+    bundled = guide_text(profile(root))
     if path.exists():
         text = path.read_text()
         if _THIS_APP in text:
@@ -186,9 +237,16 @@ def sync_guide(root: Path, *, force: bool = False) -> str | None:
 
 
 def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
-    """Copy bundled skills to .agents/skills/ and link them from .claude/skills/."""
+    """Copy the profile's skills to .agents/skills/ and link .claude/skills/.
+
+    A bundled skill the profile excludes is removed: its .agents/skills/<name>
+    directory and the .claude/skills/<name> link, reported as
+    ``removed .agents/skills/<name>``. A skill directory whose name is not
+    bundled is never touched.
+    """
     written: list[str] = []
-    for name in skill_names():
+    wanted = profile_skills(profile(root))
+    for name in wanted:
         dest = root / ".agents" / "skills" / name / "SKILL.md"
         text = resource(f"skills/{name}/SKILL.md").read_text()
         if dest.is_file() and dest.read_text() == text:
@@ -196,19 +254,99 @@ def sync_skill_files(root: Path, *, force: bool = False) -> list[str]:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(text)
         written.append(str(dest))
-    written.extend(link_skills(root, skill_names(), force=force))
+    written.extend(link_skills(root, wanted, force=force))
+    for name in skill_names():
+        if name in wanted:
+            continue
+        agents_dir = root / ".agents" / "skills" / name
+        link = root / ".claude" / "skills" / name
+        if not agents_dir.exists() and not link.is_symlink() and not link.exists():
+            continue
+        if link.is_symlink() or link.is_file():
+            link.unlink()
+        elif link.is_dir():
+            shutil.rmtree(link)
+        if agents_dir.is_dir():
+            shutil.rmtree(agents_dir)
+        elif agents_dir.exists():
+            agents_dir.unlink()
+        written.append(f"removed .agents/skills/{name}")
     return written
+
+
+def _git_ignored(root: Path, skills: Iterable[str]) -> list[str]:
+    """Agent files that git ignores. Empty when root is not a work tree."""
+    try:
+        inside = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return []  # no git
+    if inside.returncode != 0:
+        return []
+    paths = ["AGENTS.md", *_CLOUD_FILES]
+    for name in skills:
+        paths.append(f".agents/skills/{name}/SKILL.md")
+        paths.append(f".claude/skills/{name}")
+    ignored: list[str] = []
+    for rel in paths:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "check-ignore", "--", rel],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode == 0:
+            ignored.append(rel)
+        # 1: not ignored. 128 (a path beyond a symlink, and other fatal
+        # errors): skip the path, do not crash.
+    return [f"{rel} (ignored by git)" for rel in ignored]
+
+
+def _check_recipe_runs_pytest(root: Path) -> bool:
+    """False when root/justfile exists and its `check` recipe has no pytest."""
+    path = root / "justfile"
+    if not path.is_file():
+        return True
+    body: list[str] | None = None
+    for line in path.read_text().splitlines():
+        if body is not None:
+            if line.strip() and not line.startswith((" ", "\t")):
+                break
+            body.append(line)
+        elif line.startswith("check:"):
+            body = []
+    return body is not None and any("pytest" in line for line in body)
 
 
 def stale_files(root: Path) -> list[str]:
     """Paths that differ from the bundle. Empty means the app is in sync."""
     stale: list[str] = []
-    bundled_head = guide_text().split(_THIS_APP)[0].strip()
+    prof = profile(root)
+    bundled_head = guide_text(prof).split(_THIS_APP)[0].strip()
     path = root / "AGENTS.md"
     local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
     if local_head != bundled_head:
         stale.append("AGENTS.md")
+    if not (root / _CLOUD_ENV_JSON).is_file():
+        stale.append(_CLOUD_ENV_JSON)
+    install = root / _CLOUD_INSTALL
+    if (
+        not install.is_file()
+        or install.read_text() != template("cursor/cloud-install.sh").read_text()
+    ):
+        stale.append(_CLOUD_INSTALL)
+    wanted = profile_skills(prof)
     for name in skill_names():
+        if name not in wanted:
+            agents_dir = root / ".agents" / "skills" / name
+            link = root / ".claude" / "skills" / name
+            if agents_dir.exists() or link.exists() or link.is_symlink():
+                stale.append(f".agents/skills/{name} (not in profile {prof})")
+            continue
         dest = root / ".agents" / "skills" / name / "SKILL.md"
         if (
             not dest.is_file()
@@ -220,4 +358,7 @@ def stale_files(root: Path) -> list[str]:
             "..", "..", ".agents", "skills", name
         ):
             stale.append(f".claude/skills/{name}")
+    stale.extend(_git_ignored(root, wanted))
+    if not _check_recipe_runs_pytest(root):
+        stale.append("justfile (check does not run pytest)")
     return stale

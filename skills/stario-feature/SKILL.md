@@ -19,8 +19,8 @@ description: Add, change, or remove a screen (page or resource) in a Stario app.
 1. `app/features/<screen>/__init__.py`, `urls.py`, `views.py`, `handlers.py`, and `data.py` only if the screen owns tables.
 2. `app/main.py`: build the shared object once, then `register_<screen>(app, ...)` before `yield`.
 3. A link from an existing screen: import its `urls.py` and use `ROUTE.href()` in `h.A({"href": ...})`.
-4. `tests/test_<screen>.py`: the page loads; a command repaints the stream; malformed input returns 400. Assert the changed HTML in the next SSE event (`AGENTS.md`, Tests).
-5. `just check`. Fix every failure. That stream test is the live-update check. The Playwright script below is for the morph and the layout.
+4. `tests/test_<screen>.py`: the page loads; a command repaints the stream; malformed input returns 400. Assert the changed HTML in the next SSE event (`AGENTS.md`, Tests). Do not open a browser for that.
+5. `just check`. Fix every failure. The Playwright script below is for the morph, after this stream test is green.
 
 ## A static screen
 
@@ -242,6 +242,23 @@ register_board(app, Board(), relay)
 
 One `Relay` per app, built in `bootstrap`, shared by every feature.
 
+```python
+# tests/test_board.py
+from app.features.board.urls import BOARD_LIVE, PAINT
+
+
+async def test_paint_repaints_the_stream(client):
+    headers = {"accept-encoding": "identity"}
+    async with client.stream("GET", BOARD_LIVE.href(), headers=headers, timeout=2) as live:
+        events = live.iter_events()
+        assert 'id="board"' in (await anext(events))["data"]
+        r = await client.post(PAINT.href(1), json={"color": "#ff0000"})
+        assert r.status_code == 204
+        assert "#ff0000" in (await anext(events))["data"]
+```
+
+Open the live stream. Send the command. Assert the next event. That is the proof.
+
 ## A screen with slow work
 
 The command queues a job and returns at once. A task does the work and publishes each status change. The stream shows the jobs, so the `queued` row is the click feedback.
@@ -322,8 +339,7 @@ h.Main(
                     {"type": "button"},
                     data.on(
                         "click",
-                        f"$editing_id = {n.id}; $title = {string_literal(n.title)}; "
-                        "document.getElementById('edit').showModal()",
+                        f"$editing_id = {n.id}; $title = {string_literal(n.title)}; $_edit.showModal()",
                     ),
                     "Edit",
                 ),
@@ -333,9 +349,10 @@ h.Main(
     ),
     h.Dialog(
         {"id": "edit"},
+        data.ref("_edit"),
         data.preserve_attr("open"),
         h.Form(
-            data.on("submit", at.post(RENAME.href()) + "; el.closest('dialog').close()", prevent=True),
+            data.on("submit", at.post(RENAME.href()) + "; $_edit.close()", prevent=True),
             h.Input({"type": "text"}, data.bind("title")),
             h.Button({"type": "submit"}, "Save"),
         ),
@@ -360,7 +377,7 @@ def rename(notes: Notes, relay: Relay[str]):
     return handler
 ```
 
-`string_literal` comes from `stario.datastar.format`. A repaint keeps the dialog open (`preserve_attr`) and keeps what the user typed (`if_missing=True`). `type(...) is not int` also rejects `true`, which `isinstance` accepts. An add form on the same page binds its own signal (`new_title`), not the dialog's `title`.
+`string_literal` comes from `stario.datastar.format`. `data.ref("_edit")` puts the dialog element in the local signal `$_edit`, so no expression looks it up by id. A repaint keeps the dialog open (`preserve_attr`) and keeps what the user typed (`if_missing=True`). `type(...) is not int` also rejects `true`, which `isinstance` accepts. An add form on the same page binds its own signal (`new_title`), not the dialog's `title`.
 
 ## Check a live update
 
@@ -389,7 +406,7 @@ Assert the panel the command was supposed to change (`background:#ff0000`, the n
 
 ### Playwright, when the browser is the question
 
-Run this after the stream test is green, and only when the question is whether Datastar applied the patch or the page looks right. The viewer's DOM changes because its SSE stream delivered the HTML and Datastar morphed it. Headless, one script, re-runnable. Leave `playwright` out of the app's dependencies, so `just check` stays the fast path.
+Run this after the stream test is green, and only when the question is whether Datastar applied the patch. The viewer's DOM changes because its SSE stream delivered the HTML and Datastar morphed it. Headless, one script, re-runnable. Leave `playwright` out of the app's dependencies, so `just check` stays the fast path. Both pages come from one browser context, so they share cookies the way two tabs do. `browser.new_page()` would open a second context and drop the session.
 
 `just dev` is already serving the app. Point the URL and the locators at the screen you changed.
 
@@ -403,8 +420,9 @@ from playwright.async_api import async_playwright, expect
 async def main() -> None:
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        viewer = await browser.new_page()
-        actor = await browser.new_page()
+        context = await browser.new_context()
+        viewer = await context.new_page()
+        actor = await context.new_page()
         await viewer.goto("http://127.0.0.1:8000/board")
         await actor.goto("http://127.0.0.1:8000/board")
         await actor.locator("input[type=color]").fill("#ff0000")
