@@ -47,7 +47,8 @@ signals = await read_signals(c.req)
 sse = SSE(w)                       # sse.patch_elements(part), sse.patch_signals({...}),
                                  # sse.navigate(url), sse.execute_script(code)
 
-data.signals({...}, if_missing=True)   data.bind("title")   data.indicator("_saving")
+data.signals({...}, if_missing=True)   data.bind("title")
+data.indicator("_saving")  # on the element whose data.on sends the request
 data.on("click", at.post(ADD.href()), prevent=True)
 data.init(at.get(LIVE.href(), retry="always"))
 data.text(e) data.show(e) data.attr("disabled", e) data.class_("on", e)
@@ -288,13 +289,9 @@ def render(todos: list[Todo], view: TodosView, tab: str) -> HtmlElement:
             data.init(at.get(TODOS_LIVE.href(query=view.query()), retry="always")),
             h.Form(
                 data.on("submit", at.post(ADD_TODO.href()), prevent=True),
+                data.indicator("_saving"),
                 h.Input({"type": "text", "required": True, "maxlength": 200}, data.bind("title")),
-                h.Button(
-                    {"type": "submit"},
-                    data.indicator("_saving"),
-                    data.attr("disabled", "$_saving"),
-                    "Add",
-                ),
+                h.Button({"type": "submit"}, data.attr("disabled", "$_saving"), "Add"),
                 h.P({"role": "alert"}, data.show("$_error"), data.text("$_error")),
             ),
             h.Nav(
@@ -581,13 +578,9 @@ h.Dialog(
     data.preserve_attr("open"),
     h.Form(
         data.on("submit", at.post(RENAME_TODO.href()) + "; $_edit.close()", prevent=True),
+        data.indicator("_saving"),
         h.Input({"type": "text", "required": True}, data.bind("new_title")),
-        h.Button(
-            {"type": "submit"},
-            data.indicator("_saving"),
-            data.attr("disabled", "$_saving"),
-            "Save",
-        ),
+        h.Button({"type": "submit"}, data.attr("disabled", "$_saving"), "Save"),
     ),
 )
 ```

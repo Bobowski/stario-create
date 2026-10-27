@@ -4,6 +4,16 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.3.4
+
+### Fixed
+
+- The busy indicator sits on the element whose `data.on` sends the
+  request. `data.indicator` on a submit button inside a `data.on("submit")`
+  form never fires, since the fetch belongs to the `<form>`. The guide
+  rule, the Add and Save examples, and the API card now place it on the
+  sending element; a new test guards the pattern in skill code blocks.
+
 ## 5.3.3
 
 ### Added

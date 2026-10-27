@@ -76,3 +76,31 @@ def test_feature_skill_checks_the_stream_then_playwright():
     assert "timeout=2" in text
     assert "async_playwright" in text
     assert "playwright install chromium" in text
+
+
+def test_feature_skill_indicator_sits_on_the_sending_element():
+    """data.indicator belongs on the element whose data.on sends the request.
+
+    A submit fetch belongs to the <form>, so a Button inside it must not
+    carry the indicator (5.3.3 put it on the button; it never fires).
+    """
+    for block in _python_blocks(skill_text("stario-feature")):
+        src = textwrap.dedent(block)
+        tree = ast.parse(src)
+        for form in ast.walk(tree):
+            if not (
+                isinstance(form, ast.Call)
+                and isinstance(form.func, ast.Attribute)
+                and form.func.attr == "Form"
+            ):
+                continue
+            if 'data.on("submit"' not in (ast.get_source_segment(src, form) or ""):
+                continue
+            for node in ast.walk(form):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "Button"
+                    and "data.indicator(" in (ast.get_source_segment(src, node) or "")
+                ):
+                    pytest.fail("data.indicator on h.Button inside a submitting h.Form")
