@@ -13,6 +13,30 @@ uv add "litewriter>=0.3.2,<0.4"
 
 Version 0.3.2 wakes a `watch` on a virtual column when its `data` changes. Source and full reference: https://github.com/Bobowski/litewriter
 
+## API at a glance
+
+Verified against litewriter 0.3.2. Do not grep site-packages for signatures.
+
+```text
+async with LiteWriter(path, schema=schema, claim=30) as db:
+# one LiteWriter per file: claims, runs schema, serves, drains, closes
+
+rows = await db.write(fn)        # fn(tx) on the writer thread; returns its value
+db.push(fn)                      # fire and forget; errors go to on_error
+db.submit(fn).result()           # the same write from a plain thread
+
+db.query(sql, **params)          # rows, on any thread
+db.one(sql, **params)            # one row or None; db.value -> a scalar, raises on none
+await db.aquery(sql)             # async forms: aquery, aone, avalue (worker thread)
+tx.query  tx.one  tx.value       # the same three inside a write fn
+
+async with db.watch(query, into, **params) as rows:  # async iterator; one wake
+    async for rows in rows:                          # per touching commit
+
+apsw.ConstraintError             # a taken unique value; catch it in the command
+LiteError                        # base of QueryError, StateError, ClaimBusy
+```
+
 ## Open the file in bootstrap
 
 ```python

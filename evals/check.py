@@ -116,6 +116,7 @@ res["has_live_route"] = bool(
 # 4. commands that render: POST factories that write HTML or patch elements
 hsrc = src(fdir / "handlers.py")
 bad_commands = []
+private_posts = []
 try:
     tree = ast.parse(hsrc)
     defs = [n for n in tree.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)]
@@ -131,13 +132,18 @@ try:
         route, fac = call.group(1), call.group(2)
         if routes.get(route, "GET") != "GET":
             body = factories.get(fac, "")
-            if re.search(r"\bw\.html\(|patch_elements\(|w\.redirect\(", body):
+            renders = bool(re.search(r"\bw\.html\(|patch_elements\(", body))
+            mutates = bool(re.search(r"publish\(|\.write\(|\.push\(|create_task\(", body))
+            if "w.redirect(" in body or (renders and mutates):
                 bad_commands.append(fac)
+            elif renders:
+                private_posts.append(fac)
             if re.search(r"await asyncio\.sleep\(", body) and "create_task" not in body:
                 bad_commands.append(fac + ":sleeps_inline")
 except SyntaxError:
     bad_commands.append("handlers.py:syntax")
 res["commands_that_render"] = bad_commands
+res["private_posts"] = private_posts
 
 # 5. Datastar usage
 vsrc = "\n".join(src(p) for p in fdir.glob("*.py"))
