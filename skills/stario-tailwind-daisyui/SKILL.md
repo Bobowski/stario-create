@@ -97,7 +97,7 @@ from stario import h
 from stario.datastar import ModuleScript, data
 from stario.markup import HtmlElement, baked, classes
 
-from app.assets import DATASTAR_JS, STYLE_CSS
+from app.assets import DATASTAR_JS, SCRIPTS, STYLE_CSS
 
 
 @baked
@@ -110,6 +110,7 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
             h.Meta({"name": "viewport", "content": "width=device-width, initial-scale=1"}),
             h.Title(title),
             h.Link({"rel": "stylesheet", "href": STYLE_CSS}),
+            *[h.Script({"src": src, "defer": True}) for src in SCRIPTS],
             ModuleScript(DATASTAR_JS),
         ),
         h.Body(classes("min-h-screen", "bg-base-100", "text-base-content"), body),

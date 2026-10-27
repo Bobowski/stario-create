@@ -80,8 +80,11 @@ SCRIPTS = tuple(ASSETS.href(f"js/{name}.js") for name in ("theme", "share", "rul
 ```
 
 ```python
-*(h.Script({"src": src, "defer": True}) for src in SCRIPTS),
-ModuleScript(DATASTAR_JS),
+h.Head(
+    h.Link({"rel": "stylesheet", "href": STYLE_CSS}),
+    *[h.Script({"src": src, "defer": True}) for src in SCRIPTS],
+    ModuleScript(DATASTAR_JS),
+)
 ```
 
 Every page loads every file; `Assets` fingerprints them, so the browser caches them. A large file that one screen uses may load from that screen's head instead.
@@ -92,9 +95,11 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 - **Page-wide listeners sit on the shell element**, in one place:
 
   ```python
-  data.on("resize", "app.viewport.sync()", target="window"),
-  data.on("storage", "app.theme.storage(evt)", target="window"),
-  data.on("focusin", "app.viewport.reveal(evt.target)", target="document"),
+  h.Body(
+      data.on("resize", "app.viewport.sync()", target="window"),
+      data.on("storage", "app.theme.storage(evt)", target="window"),
+      data.on("focusin", "app.viewport.reveal(evt.target)", target="document"),
+  )
   ```
 
 - **Signals carry state between JavaScript and HTML.** A function returns a value (`$t = app.clock.now()`) or calls a callback the expression gives it (`v => $weight_kg = v`). HTML renders the result with `data.show`, `data.class_`, `data.attr`, `data.text`.
@@ -103,7 +108,7 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 - **A repaint copies every attribute from the server HTML.** An element whose `style` or `class` JavaScript writes during an interaction (a drag offset) gets `data.preserve_attr("style class")`.
 - **`data.init` runs again when its text changes.** Keep the text constant (server values go in `data-*` attributes) and write `el.x ??= app.x(el, ...)`, so the factory runs once per element.
 - **Guard an index read with the length.** Reading `$files[2]` when the list is shorter makes Datastar create the entry as `""`, so `$files.length` grows. Write `$files.length > 2 && $files[2].name`, and the same guard in `data.attr` and `data.text`.
-- **A checkbox group bound to one signal is positional.** `data.bind("scope")` on four checkboxes gives `["", "saved", "", ""]`: the value when checked, `""` when not. The server drops the empty strings before it uses the list.
+- **A checkbox group bound to one signal is positional.** Predefine the signal as an array (`"scope": []`). `data.bind("scope")` on four checkboxes then gives `["", "saved", "", ""]`: the value when checked, `""` when not. The server drops the empty strings before it uses the list.
 - **A part that a `GET` patches is not patched again for its own controls.** Re-rendering a checked checkbox from the server unchecks it, and the signal keeps the old value. Patch the results; leave the controls to the client.
 - **Another element is a ref, not an id lookup.** `data.ref("_edit")` on the dialog, `$_edit.showModal()` on the button. A ref name starts with `_`, so the element is not sent to the server.
 - **Server values reach JavaScript as signals or `data-*` attributes.** When an expression needs a literal, use `string_literal` from `stario.datastar.format`. Never build JavaScript with an f-string or `.replace`.

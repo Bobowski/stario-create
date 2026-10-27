@@ -1,10 +1,13 @@
+import importlib
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -309,3 +312,64 @@ def test_scaffold_shell_loads_scripts(tmp_path: Path):
     assert 'h.Script({"src": src, "defer": True}) for src in SCRIPTS' in shell
     assert "ModuleScript(DATASTAR_JS)" in shell
     assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")
+
+
+def test_tailwind_shell_loads_scripts_before_datastar():
+    text = resource("skills/stario-tailwind-daisyui/SKILL.md").read_text()
+    shell = text.split("## The shell", 1)[1].split("## ", 1)[0]
+    assert "for src in SCRIPTS" in shell
+    assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")
+
+
+def test_baked_page_loads_scripts_before_datastar(tmp_path: Path):
+    scaffold_files(tmp_path, "demo")
+    assets = tmp_path / "app/assets.py"
+    assets.write_text(
+        assets.read_text().replace(
+            "SCRIPTS: tuple[str, ...] = ()",
+            'SCRIPTS: tuple[str, ...] = ("/static/js/theme.js",)',
+        )
+    )
+    sys.path.insert(0, str(tmp_path))
+    for name in [n for n in sys.modules if n == "app" or n.startswith("app.")]:
+        del sys.modules[name]
+    try:
+        from stario import h
+
+        page = importlib.import_module("app.common.shell").page
+        html = page("Hi", h.P("x")).rendered
+        script = html.index('src="/static/js/theme.js"')
+        module = html.index('type="module"')
+        assert script < module
+        assert "defer" in html[script:module]
+        assert "datastar" in html[module:]
+    finally:
+        sys.path.remove(str(tmp_path))
+        for name in [n for n in sys.modules if n == "app" or n.startswith("app.")]:
+            del sys.modules[name]
+
+
+def _js_checker(root: Path) -> Callable[[], None]:
+    ns: dict[str, object] = {"__file__": str(root / "tests/test_js.py")}
+    exec(compile(template("tests/test_js.py.tmpl").read_text(), "test_js.py", "exec"), ns)
+    fn = ns["test_every_app_call_has_its_function"]
+    if not callable(fn):
+        raise AssertionError("test_js checker missing")
+    return cast(Callable[[], None], fn)
+
+
+def test_js_checker_requires_each_call(tmp_path: Path):
+    (tmp_path / "app").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "app/call.py").write_text('X = "app.theme.toggle()"\nY = f"app.share.copy({1})"\n')
+    check = _js_checker(tmp_path)
+    with pytest.raises(AssertionError, match=r"app\.theme"):
+        check()
+    theme = tmp_path / "static/js/theme.js"
+    theme.parent.mkdir(parents=True)
+    theme.write_text("window.app ??= {};\napp.theme = {\n  toggle() {}\n};\n")
+    with pytest.raises(AssertionError, match=r"app\.share"):
+        check()
+    share = tmp_path / "static/js/share.js"
+    share.write_text("window.app ??= {};\napp.share = {\n  copy(url, done) {}\n};\n")
+    check()
