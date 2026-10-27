@@ -19,10 +19,10 @@ just check   # lint, format, types, tests — run before done
 `new` gives you a tested, runnable app:
 
 - A uv project on Python 3.14 with `stario>=5.1,<6` and the dev tools.
-- The feature-folder layout with one static `home` screen.
+- The feature-folder layout with one static `home` page.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
-- The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
+- The five skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
@@ -74,11 +74,11 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 | Skill | Use it when |
 | --- | --- |
-| `stario-feature` | You add or remove one screen: a page or a resource with its own URL. Also the Playwright check for a live update. |
-| `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected screens. |
-| `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, `watch` repaints a live screen from a commit. |
+| `stario-feature` | You add, change, or remove one page: a resource with its own URL. |
+| `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected pages. |
+| `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
-| `stario-client` | The screen needs JavaScript: a file in `static/js/<name>.js` that Python calls as `app.<name>`. |
+| `stario-client` | The page needs JavaScript: where it goes and how Python calls it. |
 
 `npx skills add bobowski/stario-create` also works — it reads the `skills/` tree at this repo root.
 
@@ -92,4 +92,4 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 ## Changing the guide
 
-The guide is checked against real code: `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there and run its tests. A snippet in `AGENTS.md` must run as written — the package tests scaffold a project and compile every generated file, and `stario-create new` runs the new app's tests.
+The guide is checked against real code: `examples/chat-room` in the stario repo follows it. When a rule changes here, change the example there and run its tests. A snippet in `AGENTS.md` or a skill must run as written — the package tests parse every Python block, scaffold a project, and compile every generated file, and `stario-create new` runs the new app's tests. Before you change a pattern, build it in a scaffolded app and run `just check` there; then copy the passing code into the skill. Run the evals in `evals/` before and after a change to the guide.

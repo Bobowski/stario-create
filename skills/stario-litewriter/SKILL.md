@@ -1,158 +1,177 @@
 ---
 name: stario-litewriter
-description: SQLite in a Stario app through litewriter (one writer thread, group commit, watch). The recommended store when a Stario app needs persistent data. Use when the user asks for a database, SQLite, persistence, data that survives a restart, or a live screen that repaints when rows change.
+description: SQLite in a Stario app through litewriter (one writer thread, group commit, watch). The recommended store when a Stario app needs persistent data. Use when the user asks for a database, SQLite, persistence, data that survives a restart, a new table or field, an index, or a live page that repaints when rows change.
 ---
 
 # SQLite with litewriter
 
-`litewriter` is the recommended SQLite store for a Stario app. Use it when the developer wants data on disk; an app with no persistent data needs no database. One SQLite file. One writer thread. Reads from any thread on their own connection. `watch` wakes a stream when a commit changes the rows it reads. It needs CPython 3.14.
+litewriter is the SQLite store for a Stario app. Use it when the developer wants data on disk; an app with no persistent data needs no database. One SQLite file. One writer thread. Reads from any thread on their own connection. `watch` wakes a stream after a commit changes the rows it reads. It needs CPython 3.14.
 
 ```bash
-uv add "litewriter>=0.3,<0.4"
+uv add "litewriter>=0.3.2,<0.4"
 ```
 
-Source and full reference: https://github.com/Bobowski/litewriter
+Version 0.3.2 wakes a `watch` on a virtual column when its `data` changes. Source and full reference: https://github.com/Bobowski/litewriter
 
 ## Open the file in bootstrap
 
 ```python
-from litewriter import LiteWriter
-from stario import App, Span
+from litewriter import LiteWriter, Tx
+from stario import App, Relay, Span
 
 from app.assets import ASSETS
 from app.config import Config
-from app.features.board import data as board_data
-from app.features.board.handlers import register_board
+from app.features.todos import data as todos_data
+from app.features.todos.handlers import TodosPage
+
+
+def schema(tx: Tx) -> None:
+    todos_data.schema(tx)
 
 
 async def bootstrap(app: App, span: Span):
     config = Config.from_env()
-    async with LiteWriter(config.db_path, schema=board_data.SCHEMA, claim=30) as db:
+    async with LiteWriter(config.db_path, schema=schema, claim=30) as db:
         span.attrs(await ASSETS.attach(app))
-        register_board(app, db)
+        TodosPage(db, Relay[dict]()).register(app)
         yield
 ```
 
-`async with` claims the file, runs `schema=` once in one transaction, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`, so two servers never write one file. Every `SCHEMA` statement is `CREATE TABLE IF NOT EXISTS`, so a restart is safe. Several features join their schemas: `schema=board_data.SCHEMA + room_data.SCHEMA`.
+`async with` claims the file, runs `schema` once in one transaction, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`, so two servers never write one file. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper module goes around it.
 
-Pass `db` into each feature's `register` function. No wrapper module is needed around it.
+## Tables: `id` plus `data`
+
+A table holds a key and one JSON document. A field that a query filters, sorts, joins, or keeps unique becomes a virtual column, computed from `data`, with an index. A real column is for a key that the table is about: `id`, `user_id`, `room_id`.
+
+```python
+COLUMNS = {
+    "title": "TEXT AS (data->>'title')",
+    "done": "INTEGER AS (data->>'done')",
+}
+
+
+def schema(tx: Tx) -> None:
+    tx.execute(
+        "CREATE TABLE IF NOT EXISTS todos ("
+        " id INTEGER PRIMARY KEY, data TEXT NOT NULL CHECK (json_valid(data)))"
+    )
+    have = {row[0] for row in tx.query("SELECT name FROM pragma_table_xinfo('todos')")}
+    for name, column in COLUMNS.items():
+        if name not in have:
+            tx.execute(f"ALTER TABLE todos ADD COLUMN {name} {column} VIRTUAL")
+    tx.execute("CREATE INDEX IF NOT EXISTS todos_done ON todos(done)")
+    tx.execute("CREATE UNIQUE INDEX IF NOT EXISTS todos_title ON todos(lower(title))")
+```
+
+Why this shape:
+
+- A new field needs no migration. The code writes it into `data`, and old rows read it as `NULL`.
+- A new filter or sort is one entry in `COLUMNS` and one index. SQLite computes a virtual column from `data`, so no row is rewritten.
+- A field that no query uses again: remove it from `COLUMNS`, then drop its index and its column once, in `schema`:
+
+```python
+if "done" in have:
+    tx.execute("DROP INDEX IF EXISTS todos_done")
+    tx.execute("ALTER TABLE todos DROP COLUMN done")
+```
+
+- `pragma_table_xinfo` lists virtual columns. `pragma_table_info` does not.
+- `->>` returns SQL values: a JSON `true` reads as `1`. Type the dataclass field as `int`.
+
+Write a document with `stario.json.dumps`. Change one field with `json_set`:
+
+```python
+from stario.json import dumps
+
+
+def add_todo(tx: Tx, title: str) -> int:
+    return tx.value(
+        "INSERT INTO todos (data) VALUES (:data) RETURNING id",
+        data=dumps({"title": title, "done": False}),
+    )
+
+
+def set_title(tx: Tx, todo_id: int, title: str) -> None:
+    tx.execute(
+        "UPDATE todos SET data = json_set(data, '$.title', :title) WHERE id = :id",
+        id=todo_id,
+        title=title,
+    )
+```
+
+A JSON literal goes through `json(...)` as a direct argument: `json_set(data, '$.done', json('true'))`.
 
 ## Reads
 
 Reads are plain calls on the loop thread. They do not queue behind the writer.
 
 ```python
-rows = db.query("SELECT id, color FROM tiles ORDER BY id")
-row = db.one("SELECT color FROM tiles WHERE id = :id", id=3)
-count = db.value("SELECT count(*) FROM tiles")
+rows = db.query("SELECT id, title, done FROM todos ORDER BY id", Todo)
+row = db.one("SELECT id, title, done FROM todos WHERE id = :id", Todo, id=3)
+count = db.value("SELECT count(*) FROM todos")
 ```
 
-`:name` in the SQL takes the keyword argument `name`. `one` returns `None` when there is no row; `value` raises. A second positional argument builds each row:
+`:name` in the SQL takes the keyword argument `name`. `one` returns `None` when there is no row; `value` raises. The second positional argument builds each row. A rare large read (an export, a report over every row) awaits `db.aquery(...)` (or `aone`, `avalue`), which runs on a worker thread.
 
-```python
-@dataclass(frozen=True, slots=True)
-class Tile:
-    id: int
-    color: str
-
-
-tiles = db.query("SELECT id, color FROM tiles ORDER BY id", Tile)
-```
-
-A query is SQL text or a statement. Text is fine. Use a `Select` when a page composes the same query with different filters. Build statements once, at module level in `data.py`: a statement compiles its SQL on first use and keeps it.
-
-```python
-from litewriter import Select, col, param
-
-TILES = Select("id", "color", from_="tiles", order_by=col("id"))
-RED = TILES.where(col("color") == param("color"))
-
-rows = db.query(RED, Tile, color="#ff0000")
-```
-
-`.where()` returns a new statement. The original stays as it was. Values from outside go in as `:name` parameters (`param("color")`), never pasted into SQL text. SQL functions are `fn("lower", col("name"))`.
+SQL text is the default. A `Select` (`from litewriter import Select, col, param`) helps when a page composes one query with many filters. Values from outside are always `:name` parameters. An f-string may paste only a constant of the same file: a column name, an `ORDER BY` from a fixed dict.
 
 ## Writes
 
-A write is a plain `def` whose first argument is `tx`. The writer runs it on its own thread inside one transaction and commits in a batch. You do not commit.
+A write is a plain `def` whose first argument is `tx`. The writer runs it on its own thread inside one transaction and commits in a batch. You do not commit. Put the write functions in the page's `data.py` next to the reads.
 
-```python
-from litewriter import Insert, Tx, Update, col, param
+A command reads, validates, replies, and then writes:
 
-ADD_TILE = Insert("tiles", columns=["color"], returning="id")
-SET_COLOR = Update("tiles", set=["color"], where=col("id") == param("id"))
+- `await db.write(fn, ...)` is the default. The browser has its answer already, so the wait (up to one commit, 1/60 s) costs it nothing. The handler gets the result or the exception, so a publish, a message to the tab, or a span event can follow. A failure reaches the request span.
+- `db.push(fn, ...)` returns before the commit. A read soon after it (the next command's validation, a reload, a test) can run before the commit and miss the row. A failure goes to `on_error` (by default the `litewriter` logger), not to the span. Push only a write that nothing reads soon after and that may be lost: a counter, a last-seen stamp.
+- On a plain thread (a sync test, a worker in `asyncio.to_thread`), `db.submit(fn, ...).result()`. `.result()` on the loop raises `StateError`.
 
+`TestClient` returns from `client.post(...)` when the handler ends, so a test after an awaited write sees the row. After a push, it does not.
 
-def add_tile(tx: Tx, color: str) -> int:
-    return tx.value(ADD_TILE, color=color)
+Rules for a write function:
 
-
-def set_color(tx: Tx, tile_id: int, color: str) -> None:
-    tx.execute(SET_COLOR, color=color, id=tile_id)
-```
-
-`columns=["color"]` renders `VALUES (:color)`, and `set=["color"]` renders `SET color = :color`. Plain SQL text works the same way: `tx.execute("UPDATE tiles SET color = :color WHERE id = :id", color=color, id=tile_id)`.
-
-In a handler:
-
-```python
-tile_id = await db.write(add_tile, "#ff0000")
-await db.write(set_color, 3, "#00ff00")
-```
-
-`await db.write(fn, ...)` returns after the commit, with the function's return value or its exception. `db.push(fn, ...)` does not wait; errors go to `on_error`. Use `write` in a command, so a failure becomes a response. On a plain thread (a synchronous test, a worker started with `asyncio.to_thread`) `db.submit(fn, ...).result()` is the same call without a loop; `.result()` on a running loop or on the writer thread raises `StateError`.
-
-Put the write functions in the feature's `data.py` next to the queries. `tx.value`, `tx.one`, `tx.query`, `tx.execute`, and `tx.executemany` mirror the read calls and see the uncommitted batch.
-
-- A write function holds the whole batch. No network, no sleep, no password hashing inside it: do that before `db.write`.
-- An `async def` write function raises `QueryError`.
+- It holds the whole batch. No network, no sleep, no password hash inside it: do that before the call.
+- Read inside it with `tx.query`, `tx.one`, `tx.value`. `db.query` on the writer thread raises `StateError`. Do not keep `tx` after the function returns.
 - Each write runs in its own savepoint. When it raises, only that write is undone and only that caller gets the exception.
-- Writes awaited one after another each wait for a commit (up to 1/60 s each). Put related changes in one write function.
-- SQLite errors pass through from `apsw`. A taken unique value raises `apsw.ConstraintError`; catch it in the command and render the conflict.
+- Related changes go in one write function. Writes awaited one after another each wait for a commit.
+- A taken unique value raises `apsw.ConstraintError`. A command catches it and sends the message to its tab.
 
-## The stream repaints from the database
+## The stream
 
-`watch` replaces `Relay` when the state lives in the file. The first read is the rows now. Each later read comes after a commit that changed them. Equal rows do not wake, and a slow stream gets the newest rows, not a backlog.
+The stream follows one source.
 
-```python
-def board_live(db: LiteWriter):
-    async def handler(c: Context, w: Writer) -> None:
-        sse = SSE(w)
-        async with db.watch(TILES, Tile) as rows:
-            async for tiles in c.alive(rows):
-                sse.patch_elements(render(tiles))
-
-    return handler
-```
-
-A command then has no publish step. It validates, replies `204`, and calls `db.write`. The commit wakes every open stream that reads those rows. Only commits through this `LiteWriter` wake a watch.
-
-Keep `Relay` for events that are not rows: presence, typing, a toast. Mix both in one `live` handler only when the screen needs both. Then subscribe to `Relay` and read the rows again inside the loop.
-
-## Changing the schema
-
-`schema=` also takes a function of `tx`, for a migration that must look before it changes something:
+**Rows only: `watch`.** The commands write, and no publish is needed. The first read is the rows now. Each later read comes after a commit that changed them. Equal rows do not wake, and a slow stream gets the newest rows, not a backlog. Only commits through this `LiteWriter` wake a watch.
 
 ```python
-def migrate(tx: Tx) -> None:
-    tx.execute(SCHEMA)
-    columns = {row[0] for row in tx.query("SELECT name FROM pragma_table_info('tiles')")}
-    if "label" not in columns:
-        tx.execute("ALTER TABLE tiles ADD COLUMN label TEXT NOT NULL DEFAULT ''")
+async def live(self, c: Context, w: Writer) -> None:
+    sse = SSE(w)
+    async with self.db.watch(TODOS, Todo) as rows:
+        async for todos in c.alive(rows):
+            sse.patch_elements(render(todos))
 ```
 
-Pass it as `LiteWriter(config.db_path, schema=board_data.migrate, claim=30)`. It runs once at start, before the first write.
+**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes. The complete page is in skill `stario-feature` (A live page).
+
+A watch with a view puts the view's values in parameters: `db.watch(TODOS_BY_DONE, Todo, done=0)`.
+
+## Jobs that outlive the process
+
+A job row in SQLite stays `running` when the process stops. Mark these rows in the schema function, so a restart leaves no job stuck:
+
+```python
+tx.execute(
+    "UPDATE jobs SET data = json_set(data, '$.status', 'failed', '$.result', 'interrupted')"
+    " WHERE status IN ('queued', 'running')"
+)
+```
 
 ## Tests
 
-The scaffold's `tests/conftest.py` already points `APP_DB_PATH` at `tmp_path`, and `Config.from_env()` runs inside `bootstrap`, so each test gets its own file. The writer creates the file on start. A `watch` screen still uses the stream test in `AGENTS.md`. That is the proof. Do not open a browser for a write.
+The scaffold's `tests/conftest.py` points `APP_DB_PATH` at `tmp_path`, and `Config.from_env()` runs inside `bootstrap`, so each test gets its own file. A live page still uses the stream test in `AGENTS.md`. That is the proof. Do not open a browser for a write.
 
 ## Rules
 
 - One `LiteWriter` per file per process. Open it in `bootstrap`. Pass it down. The claim is an `flock`: it releases when the holder dies, so a `ClaimBusy` means the holder is still alive.
-- On dev reload the old process must die before the new one claims. Run the watcher so the app is its direct child: `uv run watchfiles 'python -m app.main' app/ static/`. A nested `uv run` inside the watched command is killed instead of the app, and the orphaned app keeps the claim. A `ClaimBusy` in dev means an orphan: find it with `lsof <db>.sqlite3-claim` and kill it.
-- Reads on the loop thread, short and indexed. A rare large read (an export, a report over every row) awaits `db.aquery(REPORT)` (or `aone`, `avalue`), which runs on a worker thread. Each thread reads on its own connection.
-- Writes through `db.write`. On a plain thread, `db.submit(fn).result()`; never `.result()` on the loop. A synchronous helper called from a handler goes through `await asyncio.to_thread(helper, ...)`. Inside a write function read with `tx`, never `db`: `db.query` on the writer thread raises `StateError`. Never keep `tx` after the function returns.
-- `:name` parameters for every outside value. No f-strings into SQL.
-- `IF NOT EXISTS` in every `SCHEMA`.
-- `watch` for rows. `Relay` for events that are not rows.
+- On dev reload the old process must die before the new one claims. Run the watcher so the app is its direct child: `uv run watchfiles 'python -m app.main' app/ static/`. A `ClaimBusy` in dev means an orphan: find it with `lsof <db>.sqlite3-claim` and kill it.
+- Reads on the loop thread, short and indexed.
+- `:name` parameters for every outside value.
+- `IF NOT EXISTS` on every `CREATE`. The schema function runs again on every start.

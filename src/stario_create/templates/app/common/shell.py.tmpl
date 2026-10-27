@@ -1,5 +1,5 @@
 from stario import h
-from stario.datastar import ModuleScript
+from stario.datastar import ModuleScript, data
 from stario.markup import HtmlElement, baked
 
 from app.assets import DATASTAR_JS, SCRIPTS, STYLE_CSS
@@ -17,5 +17,14 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
             *[h.Script({"src": src, "defer": True}) for src in SCRIPTS],
             ModuleScript(DATASTAR_JS),
         ),
-        h.Body(body),
+        h.Body(
+            body,
+            h.Output(
+                {"id": "toast", "role": "status"},
+                data.signals({"_toast": ""}, if_missing=True),
+                data.show("$_toast"),
+                data.text("$_toast"),
+                data.effect("$_toast && setTimeout(() => $_toast = '', 4000)"),
+            ),
+        ),
     )

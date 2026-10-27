@@ -1,6 +1,6 @@
 # Stario
 
-Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a screen live. State lives on the server. Stario is not ASGI; run it with `python -m app.main`, or `just dev` / `uv run watchfiles 'python -m app.main' app/ static/` in development.
+Stario is a Python framework for server-rendered hypermedia apps. Handlers are async functions that write HTML through a `Writer`. Routes are explicit `Route` values. Datastar morphs the page in the browser. A long-lived SSE stream keeps a page live. State lives on the server. Stario is not ASGI; run it with `python -m app.main`, or `just dev` / `uv run watchfiles 'python -m app.main' app/ static/` in development.
 
 ## Start here
 
@@ -11,8 +11,8 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 ## Skills (optional stacks)
 
-- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): add or remove one screen, step by step.
-- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, a login screen, protected screens.
+- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): add, change, or remove one page, with complete files.
+- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, a login page, protected pages.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
 - [stario-client](https://stario.dev/skills/stario-client/SKILL.md): where JavaScript goes, and how Python calls `app.<name>`.
@@ -20,7 +20,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 ## Docs
 
 - [Hello world](https://stario.dev/docs/tutorials/hello-world): first bootstrap, handler, page.
-- [Realtime tiles](https://stario.dev/docs/tutorials/realtime-tiles): one live screen in one file.
+- [Realtime tiles](https://stario.dev/docs/tutorials/realtime-tiles): one live page in one file.
 - [Chat room](https://stario.dev/docs/tutorials/chat-room): the same idea as a project tree.
 - [Live pages](https://stario.dev/docs/explanation/live-pages): one open response, short commands, render from state.
 - [Structuring apps](https://stario.dev/docs/how-tos/structuring-apps): the file tree.
@@ -40,4 +40,4 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 ## Defaults in one paragraph
 
-One folder per screen under `app/features/<screen>/` with `urls.py`, `views.py`, `handlers.py`, and `data.py` when the screen owns tables. A screen whose state cannot change while it is open is one `GET`, plus private reads that patch one part. A screen that shows shared state that can change is `GET /page`, `GET /page/live`, and `POST` commands that reply 204 and publish. One `render(state)` returns the full document; the stream sends it again on each change. Signals carry inputs and client-only state. Tests run through `TestClient(bootstrap)` and read the stream with `iter_events()`. That next event is the live-update check. A Playwright script (in the `stario-feature` skill) checks that Datastar morphed it; a computer-use session is for a look the assertion cannot make.
+A page is a resource: the path names it, and the query holds the view (sort, filter, columns). One folder per page under `app/features/<page>/` with `urls.py`, `views.py`, `handlers.py`, and `data.py` when the page owns state. `handlers.py` holds one page class: its fields are its dependencies, `register(app)` adds its routes, and each route is one method. A page whose state cannot change while it is open is one `GET`, plus private reads that patch one part. A live page is `GET /page`, `GET /page/live`, and `POST` commands that read, validate, reply, and then execute. Only the stream sends HTML; a message for one tab goes through `Relay` on `tab.<id>`. The HTTP status is the reaction of the browser; the span is the outcome of the work. SQLite tables are `id` plus `data` JSON, with virtual columns for filters and indexes. Tests run through `TestClient(bootstrap)` and read the stream with `iter_events()`.

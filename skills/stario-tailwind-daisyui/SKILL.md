@@ -5,7 +5,7 @@ description: Style a Stario app with Tailwind CSS v4 and DaisyUI through the sta
 
 # Tailwind and DaisyUI without Node
 
-Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The standalone binary does the work. `npm`, `npx`, and `@tailwindcss/cli` are not used. DaisyUI gives component classes (`btn`, `card`, `modal`, `drawer`) on top of Tailwind, so most screens need no custom CSS.
+Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The standalone binary does the work. `npm`, `npx`, and `@tailwindcss/cli` are not used. DaisyUI gives component classes (`btn`, `card`, `modal`, `drawer`) on top of Tailwind, so most pages need no custom CSS.
 
 ## Install once
 
@@ -113,7 +113,21 @@ def page(title: str, body: HtmlElement) -> HtmlElement:
             *[h.Script({"src": src, "defer": True}) for src in SCRIPTS],
             ModuleScript(DATASTAR_JS),
         ),
-        h.Body(classes("min-h-screen", "bg-base-100", "text-base-content"), body),
+        h.Body(
+            classes("min-h-screen", "bg-base-100", "text-base-content"),
+            body,
+            h.Div(
+                classes("toast", "toast-end"),
+                data.show("$_toast"),
+                h.Output(
+                    classes("alert", "alert-info"),
+                    {"role": "status"},
+                    data.signals({"_toast": ""}, if_missing=True),
+                    data.text("$_toast"),
+                    data.effect("$_toast && setTimeout(() => $_toast = '', 4000)"),
+                ),
+            ),
+        ),
     )
 ```
 

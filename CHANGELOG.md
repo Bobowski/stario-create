@@ -4,7 +4,7 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## Unreleased
+## 5.3.0
 
 ### Added
 
@@ -40,6 +40,54 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   the `stario-feature` skill, checks that Datastar morphed that HTML. A
   computer-use session is for a visual judgment the assertion cannot make.
   The guide stays under 12,000 bytes.
+
+### Changed: pages, commands, and storage
+
+- A page is a resource. The path names it; a `View` dataclass in
+  `urls.py` reads and writes the query (sort, filter, columns). The page
+  and the stream read the same view, so a link or a reload shows the
+  same thing. "Screen" is now "page" in the guide and the skills.
+- A page is one class in `handlers.py`: its fields are its dependencies,
+  `register(app)` adds the routes, and each route is one method. The
+  handler factories and `register_<screen>` functions are gone. The
+  scaffold's `home` is `HomePage`.
+- A command reads, validates, replies, and then executes. The HTTP status
+  is the reaction of the browser; the span records the outcome of the
+  work. The default is `await db.write(...)` after the reply; `db.push`
+  is only for a write that nothing reads soon after.
+- The signals are the state of one tab. A command that tells its tab
+  something after the work publishes signals on `tab.<id>`, and the
+  stream sends them with `patch_signals`. The app has one `Relay[dict]`:
+  `CHANGED` carries `{}`. A domain conflict is no longer written to
+  shared state, and a command never answers with HTML.
+- The scaffold's shell has a `_toast` signal and an `<output>` that shows
+  it for 4 seconds. A signal bound with `data.text` or `data.show` keeps
+  its value through a repaint, so no `ignore_morph` is needed.
+- `execute_script` is for an action, not for text. A server value in it
+  goes through `string_literal`, which escapes `<` from stario 5.2.
+- New apps require `stario>=5.2`: `TestClient` signals shutdown on exit
+  and cancels a job after 5 s, so a job test cannot hang.
+- A job runs in its own span (`c.span.step(...)`), marks itself failed
+  on `CancelledError`, and stops at shutdown. A job row in SQLite is
+  marked failed when the app starts.
+- The guide names the layers not to build (service classes, command and
+  result objects, repositories, `utils`) and says where the code goes
+  instead. It gives one line for each repeated input read.
+- SQLite tables are `id` plus `data` JSON. A filtered, sorted, or unique
+  field is a virtual column with an index; add and drop virtual columns
+  instead of migrating data. Needs litewriter 0.3.2.
+- `stario-auth` uses litewriter, runs scrypt in `asyncio.to_thread`, and
+  refuses to start with `ADMIN_EMAIL` and a short or empty
+  `ADMIN_PASSWORD`. The login answer is a signal, not HTML.
+- The tests drop the `accept-encoding: identity` header (`TestClient`
+  sends no `Accept-Encoding`) and use `TestClient(bootstrap,
+  request_timeout=5)`.
+
+### Fixed
+
+- `tests/test_js.py` no longer reads the string `"app.sqlite3"` as a call
+  to `app.sqlite3`. A fresh app failed `just check`.
+- The package tests parse every Python block in every skill.
 
 ## 5.2.0
 

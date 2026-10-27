@@ -2,10 +2,11 @@ import ast
 import re
 import subprocess
 import sys
+import textwrap
 
 import pytest
 
-from stario_create.data import guide_text, skill_text
+from stario_create.data import guide_text, skill_names, skill_text
 
 PROFILES = ["app", "api"]
 
@@ -27,6 +28,12 @@ def test_guide_python_blocks_parse(profile):
     assert profile == "api" or blocks
     for block in blocks:
         ast.parse(block)
+
+
+@pytest.mark.parametrize("name", skill_names())
+def test_skill_python_blocks_parse(name):
+    for block in _python_blocks(skill_text(name)):
+        ast.parse(textwrap.dedent(block))
 
 
 @pytest.mark.parametrize("profile", PROFILES)

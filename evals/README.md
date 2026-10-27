@@ -16,3 +16,7 @@ python3 summary.py                  # one row per run
 T8–T12 edit an existing screen: `BASE=evalapp-todos` (`BASE=evalapp-todos-bug` for T10).
 T11 (accounts) reports an `auth` block and T12 (Tailwind, theme switch) a `style` block.
 `wrapper_factories` lists factories that take nothing: redundant, reported, never a failure.
+`page_class` is true when `handlers.py` has a `*Page` class with `register`. `handler_factories` lists
+old-style factories, and `layer_classes` lists service, command, or result classes: the drift the guide
+forbids. `view_from_query` (T8) and `tab_channel` show whether the view is in the URL and whether a
+command answers its own tab through the stream.
