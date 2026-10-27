@@ -77,7 +77,7 @@ res["has_core_files"] = all(
     (fdir / f).is_file() for f in ("__init__.py", "urls.py", "views.py", "handlers.py")
 )
 res["registered_in_main"] = bool(
-    re.search(r"register_\w+\(", src(app / "main.py"))
+    re.search(r"\.register\(app\)|register_\w+\(", src(app / "main.py"))
 ) and fdir.name in src(app / "main.py")
 res["test_file"] = sorted(
     p.name for p in (run / "tests").glob("test_*.py") if p.name != "test_home.py"
@@ -118,12 +118,16 @@ hsrc = src(fdir / "handlers.py")
 bad_commands = []
 try:
     tree = ast.parse(hsrc)
-    factories = {
-        n.name: ast.get_source_segment(hsrc, n) or ""
-        for n in tree.body
-        if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
-    }
-    for call in re.finditer(r"app\.add\(\s*(\w+)\s*,\s*(\w+)\b", hsrc):
+    defs = [n for n in tree.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)]
+    defs += [
+        m
+        for c in tree.body
+        if isinstance(c, ast.ClassDef)
+        for m in c.body
+        if isinstance(m, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+    factories = {n.name: ast.get_source_segment(hsrc, n) or "" for n in defs}
+    for call in re.finditer(r"app\.add\(\s*(\w+)\s*,\s*(?:self\.)?(\w+)\b", hsrc):
         route, fac = call.group(1), call.group(2)
         if routes.get(route, "GET") != "GET":
             body = factories.get(fac, "")
@@ -228,6 +232,43 @@ res["wrapper_factories"] = sorted(
     for f, s in files.items()
     if f.startswith("app/")
     for name in wrapper_factories(s)
+)
+
+
+def handler_factories(text: str) -> list[str]:
+    """Module-level functions that return an inner async handler. The guide uses page classes."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    return [
+        n.name
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef)
+        and any(isinstance(b, ast.AsyncFunctionDef) for b in n.body)
+        and isinstance(n.body[-1], ast.Return)
+    ]
+
+
+res["handler_factories"] = sorted(
+    f"{Path(f).parent.name}/{name}"
+    for f, s in files.items()
+    if f.startswith("app/features/") and f.endswith("handlers.py")
+    for name in handler_factories(s)
+)
+res["page_class"] = bool(re.search(r"^class \w+Page\b", hsrc, re.M)) and "def register(" in hsrc
+res["layer_classes"] = sorted(
+    m.group(1)
+    for m in re.finditer(
+        r"^class (\w+(?:Service|Repository|Repo|Manager|Command|Result|Editor|Controller))\b",
+        code,
+        re.M,
+    )
+)
+res["view_from_query"] = "c.req.query" in vsrc or "from_query(" in vsrc
+res["tab_channel"] = bool(re.search(r"publish\(\s*f[\"']tab\.", vsrc))
+res["reply_before_execute"] = not re.search(
+    r"await self\.db\.write\([^\n]*\n(?:[^\n]*\n){0,2}\s*w\.empty\(\)", hsrc
 )
 
 # 6b. task probes

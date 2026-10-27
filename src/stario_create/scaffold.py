@@ -18,7 +18,7 @@ from string import Template
 
 from stario_create.data import guide_text, profile_skills, resource, skill_names, template
 
-STARIO_REQ = "stario>=5.1,<6"
+STARIO_REQ = "stario>=5.2,<6"
 DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")

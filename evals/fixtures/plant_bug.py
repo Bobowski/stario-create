@@ -8,29 +8,24 @@ def sub(path, old, new):
 h = "app/features/todos/handlers.py"
 sub(h, "from stario import App, Context, Writer\n", "from stario import App, Context, Relay, Writer\n")
 sub(h, "from app.features.todos.views import render\n", 'from app.features.todos.views import render\n\nCHANGED = "todos.changed"\n')
-sub(h, '''def todos_live(db: LiteWriter):
-    async def handler(c: Context, w: Writer) -> None:
-        sse = SSE(w)
-        async with db.watch(ITEMS) as rows:
+sub(h, "    db: LiteWriter\n", "    db: LiteWriter\n    relay: Relay[str]\n")
+sub(h, '''        sse = SSE(w)
+        async with self.db.watch(ITEMS, Todo) as rows:
             async for todos in c.alive(rows):
-                sse.patch_elements(render([Todo(r[0], r[1], bool(r[2])) for r in todos]))
-''', '''def todos_live(db: LiteWriter, relay: Relay[str]):
-    async def handler(c: Context, w: Writer) -> None:
-        async with relay.subscribe(CHANGED) as events:
+                sse.patch_elements(render(todos))
+''', '''        async with self.relay.subscribe(CHANGED, latest=True) as events:
             sse = SSE(w)
-            sse.patch_elements(render([Todo(r[0], r[1], bool(r[2])) for r in db.query(ITEMS)]))
+            sse.patch_elements(render(list_todos(self.db)))
             async for _ in c.alive(events):
-                sse.patch_elements(render([Todo(r[0], r[1], bool(r[2])) for r in db.query(ITEMS)]))
+                sse.patch_elements(render(list_todos(self.db)))
 ''')
-sub(h, "def toggle_item(db: LiteWriter):", "def toggle_item(db: LiteWriter, relay: Relay[str]):")
-sub(h, "        w.empty()\n        await db.write(toggle_done, todo_id)\n",
-       '        w.empty()\n        await db.write(toggle_done, todo_id)\n        relay.publish(CHANGED, "toggle")\n')
-sub(h, "def register_todos(app: App, db: LiteWriter) -> None:", "def register_todos(app: App, db: LiteWriter, relay: Relay[str]) -> None:")
-sub(h, "    app.add(TODOS_LIVE, todos_live(db))", "    app.add(TODOS_LIVE, todos_live(db, relay))")
-sub(h, "    app.add(TOGGLE_TODO, toggle_item(db))", "    app.add(TOGGLE_TODO, toggle_item(db, relay))")
+sub(h, "        w.empty()\n        await self.db.write(toggle_done, int(todo_id))\n",
+       '        w.empty()\n        await self.db.write(toggle_done, int(todo_id))\n        self.relay.publish(CHANGED, "toggle")\n')
+sub(h, "from app.features.todos.data import ITEMS, Todo, add_todo, get_todo, list_todos, toggle_done\n",
+       "from app.features.todos.data import add_todo, get_todo, list_todos, toggle_done\n")
 m = "app/main.py"
 sub(m, "from stario import App, Span, serve", "from stario import App, Relay, Span, serve")
-sub(m, "register_todos(app, db)", "register_todos(app, db, Relay())")
+sub(m, "TodosPage(db).register(app)", "TodosPage(db, Relay()).register(app)")
 p = Path("tests/test_todos.py"); t = p.read_text()
 a = t.index("async def test_add_repaints_the_stream"); b = t.index("async def test_toggle_repaints_the_stream")
 p.write_text(t[:a] + t[b:])

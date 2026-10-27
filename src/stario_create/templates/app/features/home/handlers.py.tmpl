@@ -1,15 +1,17 @@
+from dataclasses import dataclass
+
 from stario import App, Context, Writer
 
 from app.features.home.urls import HOME
 from app.features.home.views import render
 
 
-def show_home(app_name: str):
-    async def handler(c: Context, w: Writer) -> None:
-        w.html(render(app_name))
+@dataclass(frozen=True, slots=True)
+class HomePage:
+    app_name: str
 
-    return handler
+    def register(self, app: App) -> None:
+        app.add(HOME, self.show)
 
-
-def register_home(app: App, app_name: str) -> None:
-    app.add(HOME, show_home(app_name))
+    async def show(self, c: Context, w: Writer) -> None:
+        w.html(render(self.app_name))

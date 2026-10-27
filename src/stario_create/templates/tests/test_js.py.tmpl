@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CALL = re.compile(r"(?<![\w.$])app\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?")
+CALL = re.compile(r"(?<![\w.$])app\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*)|(?=\s*\())")
 
 
 def expressions() -> set[tuple[str, str | None]]:

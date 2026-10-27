@@ -15,6 +15,7 @@ else
 fi
 id="$vid-$task-$n-$model"
 dir="$root/runs/$id"
+mkdir -p "$root/runs"
 rm -rf "$dir"
 cp -R "$root/${BASE:-evalapp}" "$dir"
 cd "$dir"

@@ -38,7 +38,7 @@ def item(t: Todo) -> HtmlElement:
     return h.Li(
         h.Label(
             h.Input(
-                {"type": "checkbox", "checked": t.done},
+                {"type": "checkbox", "checked": bool(t.done)},
                 data.on("click", at.post(TOGGLE_TODO.href(t.id)), prevent=True),
             ),
             h.S(t.title) if t.done else t.title,

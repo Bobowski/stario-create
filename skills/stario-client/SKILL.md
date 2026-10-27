@@ -1,6 +1,6 @@
 ---
 name: stario-client
-description: Client behaviour in a Stario app - where JavaScript goes and how Python calls it. Use before you write any JavaScript, a <script>, addEventListener, or a data.on expression longer than two statements, and when a screen needs drag, swipe, a picker or ruler, keyboard or viewport handling, clipboard, dictation, a file preview, or a theme toggle.
+description: Client behaviour in a Stario app - where JavaScript goes and how Python calls it. Use before you write any JavaScript, a <script>, addEventListener, or a data.on expression longer than two statements, and when a page needs drag, swipe, a picker or ruler, keyboard or viewport handling, clipboard, dictation, a file preview, or a theme toggle.
 ---
 
 # Client behaviour
@@ -87,7 +87,7 @@ h.Head(
 )
 ```
 
-Every page loads every file; `Assets` fingerprints them, so the browser caches them. A large file that one screen uses may load from that screen's head instead.
+Every page loads every file; `Assets` fingerprints them, so the browser caches them. A large file that one page uses may load from that page's head instead.
 
 ## Rules
 
@@ -112,6 +112,7 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 - **A part that a `GET` patches is not patched again for its own controls.** Re-rendering a checked checkbox from the server unchecks it, and the signal keeps the old value. Patch the results; leave the controls to the client.
 - **Another element is a ref, not an id lookup.** `data.ref("_edit")` on the dialog, `$_edit.showModal()` on the button. A ref name starts with `_`, so the element is not sent to the server.
 - **Server values reach JavaScript as signals or `data-*` attributes.** When an expression needs a literal, use `string_literal` from `stario.datastar.format`. Never build JavaScript with an f-string or `.replace`.
+- **`sse.execute_script(...)` is for an action, not for text**: `app.list.focus()`. A server value in it goes through `string_literal`, which escapes `<` from stario 5.2, so it cannot end the script tag. Text for the user goes in a signal (`_toast`, `_error`).
 - **The only inline `<script>` is the theme restore in `<head>`.** It is one constant line and must run before the first paint (skill `stario-tailwind-daisyui`).
 - **Write the logic, not the defence.** No fallback for a `data-*` value the server always renders, no `if (!el) return` for an element the expression just passed, no `try` around an API the app's browsers have. Keep `try` where an API throws in normal use (`releasePointerCapture`, `navigator.share` cancel). The server validates input again.
 - **No method that only forwards** to another function, and no IIFE that returns an object.

@@ -7,5 +7,5 @@ from app.main import bootstrap
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
     monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "app.sqlite3"))
-    async with TestClient(bootstrap) as c:
+    async with TestClient(bootstrap, request_timeout=5) as c:
         yield c
