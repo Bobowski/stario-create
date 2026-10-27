@@ -51,7 +51,7 @@ Sort every user action:
 - **A result only this tab needs** while the user types (search as you type, a preview): a `GET` that reads the signals and answers `SSE(w).patch_elements(part)`, or a `POST` when the input is too long for a URL. It changes no state and keeps nothing.
 - **Change state** (add, edit, delete, start a job): a command, `POST`.
 
-A page whose state cannot change while it is open is static: `w.html(render(...))`. A page that shows shared state that can change is live:
+A page whose state cannot change while it is open is static: `w.html(render(...))`. A page on shared state that can change is live:
 
 ```text
 GET  /board        the first document, with a new tab id
@@ -63,7 +63,7 @@ POST /board/...    a command: read, validate, reply, execute
 2. The stream validates `tab`, subscribes, sends `render(...)`, then again after each event.
 3. The stream is the only thing that sends HTML. A command never answers with HTML: other tabs would not see it.
 
-The stream follows one source. Rows only: `db.watch(query)` (skill `stario-litewriter`). Rows and messages for one tab: `relay.subscribe(CHANGED, f"tab.{tab}", latest=True)` on the one `Relay[dict]`. Subscribe before the first render. Subjects are constants in `handlers.py`.
+The stream follows one source. Rows only: `db.watch(query)` (skill `stario-litewriter`). Rows and messages for one tab: `relay.subscribe(CHANGED, f"tab.{tab}", latest=True)` on the one `Relay[dict]`. Subscribe before the first render. Subjects are constants.
 
 ## Commands: read, validate, reply, execute
 
@@ -71,7 +71,7 @@ The HTTP status tells the browser how to react; the span records what the domain
 
 1. Read: `await read_signals(c.req)`, `c.match.params`, `c.state["user"]`.
 2. Validate. Bad, forged, or foreign input gets `w.text("why", status=400)` (or 403, 404) and `return`.
-3. Reply: `w.empty()` (204), `SSE(w).patch_signals(...)` to clear an input or show a validation message, or `SSE(w).navigate(url)`. A 303 to a Datastar request does not change the URL.
+3. Reply: `w.empty()` (204), `SSE(w).patch_signals(...)` to clear an input or show a message, or `SSE(w).navigate(url)`. A 303 to a Datastar request does not change the URL.
 4. Execute: change state, then publish `relay.publish(CHANGED, {})`.
 
 After the reply, `await db.write(...)`: the browser has its answer, and a failure reaches the span. `db.push` only a write that nothing reads soon after (a counter, a last-seen stamp); a read after a push can run before its commit. A domain outcome is `c.span.event(...)`; a domain failure is `c.span.fail(...)`.
@@ -92,12 +92,12 @@ Slow work (a model call, a download) is a job. The command adds it as `queued`, 
 
 The server renders the state. Signals carry what the user types or picks, the tab id, and client-only state.
 
-- One `data.signals({...}, if_missing=True)` per page, on the element that opens the stream, so a repaint keeps what the user typed.
-- `data.bind("title")` ties an input to a signal. A leading `_` (`_error`) makes a signal local: Datastar does not send it.
+- One `data.signals({...}, if_missing=True)` per page, on the element that opens the stream: a repaint keeps what was typed.
+- `data.bind("title")` ties an input to a signal. A leading `_` (`_error`) makes it local: Datastar does not send it.
 - One signal per field and one for the row being edited (`editing_id`), not one per row. Validate `editing_id` like any input.
-- The resource id is in the path, the view is in the query, the user is in a signed cookie (skill `stario-auth`). None of them is a signal.
-- Every button that sends a command shows it is busy: `data.indicator("_saving")` and `data.attr("disabled", "$_saving")`.
-- A `<dialog>` or `<details>` holds its own open state: add `data.preserve_attr("open")`. A subtree the client owns gets `data.ignore_morph()`.
+- The resource id is in the path, the view in the query, the user in a signed cookie (skill `stario-auth`). None is a signal.
+- Every command shows it is busy: `data.indicator("_saving")` on the element whose `data.on` sends it (the `<form>` for a submit), and `data.attr("disabled", "$_saving")` on its button.
+- A `<dialog>` or `<details>` holds its own open state (`data.preserve_attr("open")`). A subtree the client owns gets `data.ignore_morph()`.
 
 ## Storage
 
