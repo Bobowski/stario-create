@@ -24,6 +24,46 @@ description: Add, change, or remove a page (a resource with its own URL) in a St
 4. `tests/test_<page>.py`: the page loads; the view follows the query; a command repaints the stream; bad input gets 4xx. Assert the changed HTML in the next SSE event. Do not open a browser for that.
 5. `just check`. Fix every failure. The Playwright script in "Check a live update" is for the morph, after the stream test is green.
 
+## API at a glance
+
+Import from `stario` unless noted. Do not grep site-packages for signatures.
+
+```text
+app.add(ROUTE, handler)            # one method+path route; app.use("/prefix", mw)
+app.create_task(coro)              # tracked task; app.shutting_down is True while draining
+
+c.req.query  c.req.cookies         # request maps; c.match.params are the path captures
+c.state                            # dict that middleware fills; c.app is the App
+c.alive(source)                    # async iterator until disconnect or shutdown
+
+w.html(render(...))   w.text("why", status=400)   w.empty()   w.json(value)
+w.redirect(url, status=303)        # one answer per handler
+set_cookie(w, "sid", token)        # stario.cookies; delete_cookie(w, "sid") clears
+
+signals = await read_signals(c.req)
+sse = SSE(w)                       # sse.patch_elements(part), sse.patch_signals({...}),
+                                 # sse.navigate(url), sse.execute_script(code)
+
+data.signals({...}, if_missing=True)   data.bind("title")   data.indicator("_saving")
+data.on("click", at.post(ADD.href()), prevent=True)
+data.init(at.get(LIVE.href(), retry="always"))
+data.text(e) data.show(e) data.attr("disabled", e) data.class_("on", e)
+data.preserve_attr("open")  data.ignore_morph()
+at.get(url, retry="always")   at.post(url)
+
+h.Div({"id": "app"}, h.P("hi"))    # every tag is h.Name; first arg may be an attrs
+                                   # dict; None children are skipped
+
+relay.publish(CHANGED, {})
+async with relay.subscribe(CHANGED, f"tab.{tab}", latest=True) as events: ...
+
+span.attrs({...})  span.event("name")  span.fail("why")  span.step("job.run")
+
+client = TestClient(bootstrap, request_timeout=5)   # get, post(url, json=signals)
+async with client.stream("GET", url, params=TAB) as live: live.iter_events()
+client.tracer.find_span("job.run")
+```
+
 ## A static page
 
 ```python

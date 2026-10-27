@@ -61,7 +61,7 @@ def cmd_new(args: argparse.Namespace) -> int:
     dest.mkdir(parents=True, exist_ok=True)
 
     if not (dest / "pyproject.toml").exists():
-        _run(["uv", "init", "--app", "--python", "3.14", str(dest)], dest)
+        _run(["uv", "init", "--app", "--no-package", "--python", "3.14", str(dest)], dest)
     if (dest / "main.py").exists():
         (dest / "main.py").unlink()
     _run(["uv", "add", STARIO_REQ, *(["orjson>=3.13.0"] if args.orjson else [])], dest)

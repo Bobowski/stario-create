@@ -4,6 +4,26 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.3.2
+
+### Added
+
+- The guide documents route precedence: a literal segment beats a
+  parameter in any registration order, so `/rooms/live` and
+  `/rooms/{room_id}` both work. Same line in `AGENTS-api.md`.
+- `stario-feature` gains `## API at a glance`: the names and keywords an
+  agent needs (App, Context, Writer, `read_signals`, `SSE`, `data.*`,
+  `at.*`, `h.*`, Relay, Span, TestClient), verified against stario 5.2.0.
+
+### Fixed
+
+- `stario-create new` no longer ships a dead package. uv 0.13.5's
+  `uv init --app` creates `src/<name>/`, `[project.scripts]`, and
+  `[build-system]`; the scaffold now passes `--no-package`, so a new app
+  keeps every file in `app/` where pyright and the guide look.
+- The Tailwind skill pins the DaisyUI tag it was tested with,
+  `DU=v5.7.50`, instead of `v5.x.y`.
+
 ## 5.3.1
 
 ### Fixed
