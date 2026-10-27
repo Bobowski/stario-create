@@ -104,7 +104,7 @@ Choose with the developer. Do not add a database the app does not need.
 
 - No persistence: an object built in `bootstrap`.
 - SQLite: litewriter (skill `stario-litewriter`). A table is `id` plus `data` JSON. A field that a query filters, sorts, or keeps unique becomes a virtual column with an index. Add and drop virtual columns; do not migrate data. A real column is for a key: `id`, `user_id`.
-- The database path is a `Config` field; tests point it at `tmp_path`. Yard sets `PROJECT_DATA_DIR=/data`; the database must be there, or a redeploy loses it.
+- Files go in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys) or `./data`. The database is `config.db_path`. Tests set `PROJECT_DATA_DIR` to `tmp_path`.
 
 ## Code shape
 

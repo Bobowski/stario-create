@@ -4,6 +4,19 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.3.1
+
+### Fixed
+
+- The scaffold keeps its files where Yard keeps them. `Config` gets
+  `data_dir`: `$PROJECT_DATA_DIR`, or `./data` when it is unset, created
+  on start. `db_path` is `data_dir / "app.sqlite3"`. Yard sets
+  `PROJECT_DATA_DIR=/data`, so a deployed database survives every deploy;
+  before, `app.sqlite3` sat in the container and a redeploy lost it.
+  `APP_DB_PATH` is gone. `tests/conftest.py` sets `PROJECT_DATA_DIR` to
+  `tmp_path`, `.gitignore` gets `data/`, and the guide, `stario-litewriter`,
+  and `stario-auth` follow.
+
 ## 5.3.0
 
 ### Added

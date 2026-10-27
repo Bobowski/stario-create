@@ -1,15 +1,21 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
 class Config:
     app_name: str
-    db_path: str
+    data_dir: Path
+    db_path: Path
 
     @classmethod
     def from_env(cls) -> Config:
+        # Yard sets PROJECT_DATA_DIR=/data, a host directory that survives every deploy.
+        data_dir = Path(os.environ.get("PROJECT_DATA_DIR", "data"))
+        data_dir.mkdir(parents=True, exist_ok=True)
         return cls(
             app_name=os.environ.get("APP_NAME", "$app_name"),
-            db_path=os.environ.get("APP_DB_PATH", "app.sqlite3"),
+            data_dir=data_dir,
+            db_path=data_dir / "app.sqlite3",
         )

@@ -110,7 +110,9 @@ scrypt takes about 30 ms of CPU. On the loop, every other request waits for it. 
 ```python
 @dataclass(frozen=True, slots=True)
 class Config:
-    db_path: str
+    app_name: str
+    data_dir: Path
+    db_path: Path
     session_secret: bytes
     dev: bool
     admin_email: str
@@ -125,8 +127,12 @@ class Config:
         admin_password = os.environ.get("ADMIN_PASSWORD", "")
         if admin_email and len(admin_password) < 12:
             raise RuntimeError("ADMIN_EMAIL is set: set ADMIN_PASSWORD to 12+ characters.")
+        data_dir = Path(os.environ.get("PROJECT_DATA_DIR", "data"))
+        data_dir.mkdir(parents=True, exist_ok=True)
         return cls(
-            db_path=os.environ.get("APP_DB_PATH", "app.sqlite3"),
+            app_name=os.environ.get("APP_NAME", "app"),
+            data_dir=data_dir,
+            db_path=data_dir / "app.sqlite3",
             session_secret=secret.encode(),
             dev=os.environ.get("APP_DEV") == "1",
             admin_email=admin_email,
@@ -134,7 +140,7 @@ class Config:
         )
 ```
 
-Generate a secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. `APP_DEV=1` allows the cookie over plain HTTP on localhost. Do not set it in production. The app does not start with an admin email and no password, so no admin account has an empty password.
+The first three fields are the scaffold's; keep them. Generate a secret: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. `APP_DEV=1` allows the cookie over plain HTTP on localhost. Do not set it in production. The app does not start with an admin email and no password, so no admin account has an empty password.
 
 ## The users table: `app/features/login/data.py`
 
@@ -320,7 +326,7 @@ from app.main import bootstrap
 
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("APP_DB_PATH", str(tmp_path / "app.sqlite3"))
+    monkeypatch.setenv("PROJECT_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("SESSION_SECRET", "test-secret-test-secret-test-secret-test")
     monkeypatch.setenv("APP_DEV", "1")
     monkeypatch.setenv("ADMIN_EMAIL", "ada@example.com")

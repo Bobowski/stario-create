@@ -131,6 +131,7 @@ def scaffold_files(
     created.extend(sync_skill_files(root, force=force))
 
     _append_once(root / ".gitignore", "*.sqlite3*", created)
+    _append_once(root / ".gitignore", "data/", created)
     _append_pyproject_extras(root / "pyproject.toml", created)
     return created
 
@@ -168,7 +169,8 @@ def _append_once(path: Path, line: str, created: list[str]) -> None:
         return
     with path.open("a") as f:
         f.write(line + "\n")
-    created.append(str(path))
+    if str(path) not in created:
+        created.append(str(path))
 
 
 def _append_pyproject_extras(path: Path, created: list[str]) -> None:
