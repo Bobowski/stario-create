@@ -11,7 +11,7 @@ Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The sta
 
 ```bash
 mkdir -p frontend/src static/css
-DU=v5.x.y   # pin the DaisyUI tag you tested: https://github.com/saadeghi/daisyui/releases
+DU=v5.7.50  # pin the DaisyUI tag you tested: https://github.com/saadeghi/daisyui/releases
 curl -fL -o frontend/daisyui.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui.mjs"
 curl -fL -o frontend/daisyui-theme.mjs "https://github.com/saadeghi/daisyui/releases/download/$DU/daisyui-theme.mjs"
 ```

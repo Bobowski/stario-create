@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import os
 import re
 import shutil
@@ -124,6 +125,23 @@ def test_cli_error_text():
     assert out.returncode == 1
     assert out.stderr.startswith("stario-create: ")
     assert "hint: " in out.stderr
+
+
+def test_cli_new_app_is_not_a_package(tmp_path: Path):
+    if shutil.which("uv") is None:
+        pytest.skip("uv is not on PATH")
+    out = subprocess.run(
+        [*CLI, "new", "demo", "--dir", str(tmp_path), "--no-verify"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert out.returncode == 0, out.stderr
+    root = tmp_path / "demo"
+    assert not (root / "src").exists()
+    pyproject = (root / "pyproject.toml").read_text()
+    assert "[project.scripts]" not in pyproject
+    assert "[build-system]" not in pyproject
 
 
 def test_cli_sync_fresh_dir(tmp_path: Path):

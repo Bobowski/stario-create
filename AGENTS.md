@@ -1,6 +1,6 @@
 # Stario app guide
 
-How to build a Stario app. This is the default; when the developer asks for something else, do that.
+How to build a Stario app, unless the developer asks for something else.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
@@ -36,6 +36,7 @@ tests/test_<page>.py
 - `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register pages, `yield`, clean up. Keep `app.use("/", same_origin(), security_headers())`: cross-site commands get 403.
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})` builds the link. No `url_for`, no `app.get`.
+- A literal segment beats a parameter, in any order: `/rooms/live` and `/rooms/{room_id}` both work.
 - `c.match.params`, `c.req.query`, `c.req.cookies`; middleware fills `c.state`. Middleware is `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`, never bare `asyncio.create_task`.
 - One process, one event loop. Shared state is an object built in `bootstrap`. No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
@@ -66,7 +67,7 @@ The stream follows one source. Rows only: `db.watch(query)` (skill `stario-litew
 
 ## Commands: read, validate, reply, execute
 
-The HTTP status tells the browser how to react. The span records what the domain did. The two can differ: a 204 whose write failed has a failed span.
+The HTTP status tells the browser how to react; the span records what the domain did — a 204 whose write failed has a failed span.
 
 1. Read: `await read_signals(c.req)`, `c.match.params`, `c.state["user"]`.
 2. Validate. Bad, forged, or foreign input gets `w.text("why", status=400)` (or 403, 404) and `return`.
@@ -130,7 +131,7 @@ Where code goes:
 - A read or a write is a function in `data.py`: `list_*`, `get_*` (one or `None`), `add_*`, `set_*`, `remove_*`.
 - A rule with no URL that several pages use is a plain function in `app/<name>/`.
 
-Do not build: service classes, repositories, command or result objects, base pages, a `utils` module, a wrapper around `db`, a helper with one call site. Each one adds a jump that no test sees.
+Do not build: service classes, repositories, command or result objects, base pages, a `utils` module, a wrapper around `db`, a helper with one call site.
 
 Read input with these lines, not with a helper:
 
