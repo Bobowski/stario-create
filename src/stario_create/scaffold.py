@@ -122,7 +122,6 @@ def scaffold_files(
     w("tests/test_js.py", _fill("tests/test_js.py.tmpl"))
 
     w("justfile", template("justfile").read_text())
-    w("Dockerfile", template("Dockerfile").read_text())
     w(".dockerignore", template("dockerignore").read_text())
     created.extend(sync_cloud_env(root, force=force))
 

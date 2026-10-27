@@ -34,6 +34,21 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   `h.Script(SafeString(` beyond the theme restore; window/document
   listeners and HTML building in `static/js`.
 
+## 5.2.0
+
+### Changed
+
+- `new` no longer writes a `Dockerfile`. Yard detects a Stario app from
+  `pyproject.toml` and `uv.lock` and writes the Containerfile itself. `new`
+  still writes `.dockerignore`, which that build uses.
+
+## 5.1.3
+
+### Changed
+
+- The app Dockerfile copies uv 0.13.5. uv below 0.13.4 still trusts the
+  compromised emSign root while it downloads packages.
+
 ## 5.1.2
 
 ### Added
