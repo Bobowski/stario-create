@@ -4,7 +4,7 @@ How to build a Stario app. This is the default; when the developer asks for some
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (add or remove a screen, complete example files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS).
+Skills in `.agents/skills/`: `stario-feature` (add or remove a screen, complete example files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
 
 Before you call work done, run `just check` (ruff, ruff format, pyright, pytest) and fix every failure.
 
@@ -30,7 +30,7 @@ tests/test_<screen>.py
 - `common/` holds what every screen shares (the shell, the session), not borrowed views or queries. Two screens with similar HTML keep their own copies.
 - `app/db.py` exists only when several features share one connection object.
 - The tree serves the problem: split a file when it is hard to read; keep imports one way.
-- No `.js` files: a Datastar expression on the element covers small UI behaviour.
+- JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string (skill `stario-client`).
 
 ## Stario rules
 

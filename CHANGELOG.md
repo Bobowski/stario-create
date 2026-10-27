@@ -4,6 +4,38 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+
+- A new skill, `stario-client`: server first, then HTML and CSS, then a
+  Datastar attribute, then a function in `static/js/<name>.js`. Each file
+  is a classic script that defines one `app.<name>` namespace — a plain
+  object literal, or a per-element factory only when the element needs
+  its own state. Datastar adds every page-wide listener with
+  `data.on(..., target="window")`.
+
+### Changed
+
+- The guide drops "No `.js` files". JavaScript lives in
+  `static/js/<name>.js`, never in a Python string; the guide points to
+  `stario-client` and stays under the 12,000-byte budget.
+- `assets.py` gets `SCRIPTS`: a tuple of `ASSETS.href("js/<name>.js")`.
+  The shell loads each one with `h.Script({"src": src, "defer": True})`
+  before `ModuleScript(DATASTAR_JS)`.
+- `new` writes `tests/test_js.py`: every `app.<name>.<method>` call in
+  `app/**/*.py` must have its function in `static/js/<name>.js`.
+- `stario-feature`'s edit dialog uses `data.ref` (`$_edit.showModal()`),
+  not a `getElementById` in the expression.
+- `stario-tailwind-daisyui` keeps the one-line theme restore as the only
+  inline script and moves the toggle to `theme.js` (`app.theme`). Its
+  shell example loads `SCRIPTS` before Datastar, same as the scaffold.
+- `evals/check.py` probes for JavaScript in `app/**/*.py`
+  (`addEventListener`, `getElementById`, `window` writes, arrow bodies,
+  `h.Script(SafeString(`) and, in `static/js`, window or document
+  listeners and HTML building.
+- README and `llms.txt` list `stario-client` with the other skills.
+
 ## 5.2.0
 
 ### Changed
