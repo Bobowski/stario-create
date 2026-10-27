@@ -44,7 +44,9 @@ def test_scaffold_files_compile(tmp_path: Path):
     assert (tmp_path / "AGENTS.md").read_text() == guide_text()
     assert not (tmp_path / "CLAUDE.md").exists()
     assert (tmp_path / "static/js/datastar.js").exists()
-    assert "*.sqlite3*" in (tmp_path / ".gitignore").read_text()
+    gitignore = (tmp_path / ".gitignore").read_text().splitlines()
+    assert "*.sqlite3*" in gitignore
+    assert "data/" in gitignore
     justfile = (tmp_path / "justfile").read_text()
     assert "\ndev:" in justfile
     assert "\ncheck:" in justfile
@@ -65,6 +67,34 @@ def test_scaffold_files_compile(tmp_path: Path):
         link = tmp_path / ".claude/skills" / skill
         assert link.is_symlink()
         assert (link / "SKILL.md").read_text() == skill_md.read_text()
+
+
+def _load_config(root: Path):
+    spec = importlib.util.spec_from_file_location("scaffold_config", root / "app/config.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.Config
+
+
+def test_config_keeps_data_in_project_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    root = tmp_path / "app"
+    scaffold_files(root, "demo")
+    config_cls = _load_config(root)
+
+    yard_data = tmp_path / "srv-data"
+    monkeypatch.setenv("PROJECT_DATA_DIR", str(yard_data))
+    config = config_cls.from_env()
+    assert config.data_dir == yard_data
+    assert config.db_path == yard_data / "app.sqlite3"
+    assert yard_data.is_dir()
+
+    monkeypatch.delenv("PROJECT_DATA_DIR")
+    monkeypatch.chdir(root)
+    local = config_cls.from_env()
+    assert local.db_path == Path("data/app.sqlite3")
+    assert (root / "data").is_dir()
 
 
 def test_scaffold_orjson_adds_the_codec(tmp_path: Path):

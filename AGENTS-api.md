@@ -31,8 +31,8 @@ Choose with the developer. Do not add a database the app does not need.
 
 - No persistence: an object built in `bootstrap`.
 - SQLite: litewriter is the recommended default. Plain `sqlite3` is fine for a small app.
-- Every `SCHEMA` statement is `IF NOT EXISTS`. The database path is a config field; tests point it at `tmp_path`.
-- A host data directory (Yard sets `PROJECT_DATA_DIR=/data`) must hold the database, or a redeploy loses it.
+- Every `SCHEMA` statement is `IF NOT EXISTS`.
+- Files live in `config.data_dir`: `$PROJECT_DATA_DIR`, or `./data` on a laptop. Yard sets `/data`, which survives every deploy. The database is `config.db_path` there. Tests set `PROJECT_DATA_DIR` to `tmp_path`.
 
 ## Code shape
 
