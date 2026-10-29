@@ -4,6 +4,29 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.5.0
+
+### Changed
+
+- One API skill: `stario-api` replaces `stario-datastar`. It holds every
+  signature an agent needs — App, Route, Context (`c.req.query` is a
+  `ParsedQuery`), headers, cookies, Writer, Relay, Span, middleware
+  (`security_headers()` sets no CSP), `STARIO_HOST`/`STARIO_PORT`, `h.*`
+  tags as rules, TestClient, `data.*`, `at.*`, `read_signals`, `SSE`, and
+  how a morph treats the page. Evals showed agents load one or two skills
+  per task, so a split API skill was missed and they read `site-packages`.
+- `stario-feature` tells the agent to load `stario-api`, and drops its
+  own API card. `stario-client` and `stario-tailwind-daisyui` point to it.
+- Simpler defaults, learned from the apps in production: most pages have
+  no sort or filter and never message one tab. The guide makes the `View`
+  and the tab id optional, names `db.watch` as the common stream, and asks
+  for a busy indicator on forms, not on every button. `stario-feature`
+  opens with the plain watch page (no view, no tab, no Relay), then adds
+  the view and tab messages.
+- `stario-litewriter` has a full `watch` section: what wakes it (only the
+  columns its query reads), `into`, parameters, one fixed SQL text per
+  sort key (`ORDER BY` cannot be a parameter), and how to test it.
+
 ## 5.4.0
 
 ### Changed

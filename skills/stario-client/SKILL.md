@@ -5,6 +5,8 @@ description: Client behaviour in a Stario app - where JavaScript goes and how Py
 
 # Client behaviour
 
+Every `data.*` and `at.*` signature is in skill `stario-api`.
+
 The server renders the state. JavaScript is for what HTML and Datastar cannot express. It lives in `static/js/<name>.js` and Python calls it from Datastar attributes. It never lives in a Python string.
 
 ## Pick the first layer that does the job
@@ -91,6 +93,7 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 
 ## Rules
 
+- `security_headers()` sets no Content-Security-Policy. An inline `<script>`, a `static/js/` file, and Datastar expressions all run.
 - **Datastar adds the listeners that the app reacts to.** `data.on("click", ...)`; `target="window"`, `"document"`, or `"outside"` for a page-wide event. Datastar removes them when the element leaves. A file never calls `addEventListener` on `window` or `document`. The one exception is `visualViewport`, from one `data.init` on the shell.
 - **Page-wide listeners sit on the shell element**, in one place:
 
