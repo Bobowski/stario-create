@@ -207,6 +207,15 @@ def test_cli_sync_check_detects_stale_skill(tmp_path: Path):
     assert ".agents/skills/stario-feature/SKILL.md" in out.stdout
 
 
+def test_cli_sync_check_flags_a_guide_over_the_rule_limit(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    guide = tmp_path / "AGENTS.md"
+    guide.write_text(guide.read_text() + "x" * 5_000 + "\n")
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 1
+    assert "rule loaders cut at 16000" in out.stdout
+
+
 def test_cli_sync_check_detects_stale_guide(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     guide = tmp_path / "AGENTS.md"

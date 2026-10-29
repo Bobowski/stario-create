@@ -27,6 +27,8 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Checks are looser: a new layout no longer needs a browser or a
   screenshot. A browser is only for client JS that holds state, or a
   browser bug that no test reproduces.
+- `sync --check` exits 1 when `AGENTS.md` is over 16,000 bytes, where
+  rule loaders cut an always-on file.
 - The guide drops repeated text to stay under the 12 KB budget: the
   shutdown details (still in `stario-feature`, slow work) and three rows
   of Common mistakes that repeat a rule above them.
