@@ -26,7 +26,7 @@ description: Add, change, or remove a page (a resource with its own URL) in a St
 
 ## API at a glance
 
-Import from `stario` unless noted. Do not grep site-packages for signatures.
+Import from `stario` unless noted. Do not read site-packages for signatures; pyright checks each call. Every `data.*`, `at.*`, and `SSE` signature is in skill `stario-datastar`.
 
 ```text
 app.add(ROUTE, handler)            # one method+path route; app.use("/prefix", mw)
@@ -45,16 +45,13 @@ set_cookie(w, "sid", token)        # stario.cookies; delete_cookie(w, "sid") cle
 
 signals = await read_signals(c.req)
 sse = SSE(w)                       # sse.patch_elements(part), sse.patch_signals({...}),
-                                 # sse.navigate(url), sse.execute_script(code)
+                                 # sse.navigate(url); the rest: stario-datastar
 
 data.signals({...}, if_missing=True)   data.bind("title")
 data.indicator("_saving")  # on the element whose data.on sends the request
 data.on("click", at.post(ADD.href()), prevent=True)
 data.init(at.get(LIVE.href(), retry="always"))
-data.text(e) data.show(e) data.attr("disabled", e) data.class_("on", e)
-data.preserve_attr("open")  data.ignore_morph()  data.persist()  # survives reload
-at.get(url, retry="always")   at.post(url)
-data.on("input", expr, debounce="200ms")         # also throttle, once, target=
+data.preserve_attr("open")  data.ignore_morph()  # the rest: stario-datastar
 from stario.markup import svg                    # svg.Svg, svg.Circle, svg.Path, ...
 
 STARIO_HOST / STARIO_PORT                        # ServerConfig.from_env, 127.0.0.1 / 8000
@@ -631,7 +628,7 @@ async def test_add_shows_on_another_tab(client):
 
 ### Browser check
 
-Use it only for what `AGENTS.md` (Checks) sends to a browser: client JS that holds state, a new layout, or a browser bug that no test reproduces. When the user watches the app in the chat, the user is the browser; skip this.
+Use it only for what `AGENTS.md` (Checks) sends to a browser: client JS that holds state, or a browser bug that no test reproduces. When the user watches the app, the user is the browser; skip this.
 
 The script starts its own server on a free port and stops it in `finally`. It never touches a server it did not start. Keep `playwright` out of the app's dependencies, so `just check` stays fast. Both pages share one browser context, so they share cookies like two tabs.
 

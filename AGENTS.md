@@ -4,7 +4,7 @@ How to build a Stario app, unless the developer asks for something else.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (a page, complete files), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
+Skills in `.agents/skills/`: `stario-feature` (a page), `stario-datastar` (`data.*`, `at.*`, `SSE`), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
 
 ## Layout
 
@@ -157,13 +157,9 @@ async def test_paint_repaints_the_stream(client):
 
 ## Checks
 
-Check what you changed, at the cost the change needs. A handler, a query, a stream: a `TestClient` test, under a second. A style: `just css`. Trust Stario, Datastar, litewriter, and Tailwind: when the stream test shows the new HTML, the browser shows it. After a Python change and before a push: `just check`; fix every failure.
+Check what you changed, at the cost the change needs. A handler, a query, a stream: a `TestClient` test. A style: `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyright checks each call, and when the stream test shows the new HTML, the browser shows it. Read their source only when pyright or a test fails. After a Python change and before a push: `just check`; fix every failure.
 
-A browser is for what a person must otherwise look at: client JS that holds state, a new layout, a browser bug that no test reproduces.
-
-- The user watches the app in this chat: the user is the browser. Make the change, say what to look at, go on.
-- You work alone and nobody sees the app before the push: check it in a browser (`stario-feature`, Browser check) on your own server on a free port. Put the screenshot in the pull request.
-- The user says it does not work: `curl` their server, then a failing test, then the browser.
+A browser is only for client JS that holds state, or a browser bug that no test reproduces. When the user watches the app, the user is the browser: make the change and say what to look at. When the user says it does not work: `curl` their server, then a failing test, then a browser on your own server on a free port (`stario-feature`, Browser check).
 
 ## Common mistakes
 

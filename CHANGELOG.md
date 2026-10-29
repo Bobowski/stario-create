@@ -18,6 +18,15 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - `stario-feature` replaces the Playwright section with "Browser check":
   a script that starts its own server on a free port, stops it in
   `finally`, and has a 60 s limit.
+- New skill `stario-datastar`: every `data.*`, `at.*`, and `SSE`
+  signature from the stario source, the Datastar Pro-only list, and how a
+  morph treats the page. Agents no longer read `site-packages` for a
+  signature; the guide says pyright checks each call.
+- `stario-feature`'s API card drops `data.persist()`. It is Datastar Pro
+  only, and the apps ship the free bundle.
+- Checks are looser: a new layout no longer needs a browser or a
+  screenshot. A browser is only for client JS that holds state, or a
+  browser bug that no test reproduces.
 - The guide drops repeated text to stay under the 12 KB budget: the
   shutdown details (still in `stario-feature`, slow work) and three rows
   of Common mistakes that repeat a rule above them.

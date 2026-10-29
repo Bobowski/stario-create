@@ -75,6 +75,16 @@ def test_guide_sends_only_what_a_person_must_see_to_a_browser():
     assert "the user is the browser" in text
     assert "Browser check" in text
     assert "Playwright" not in text
+    assert "pyright checks each call" in text
+
+
+def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
+    text = skill_text("stario-datastar")
+    for name in ["data.on(", "data.bind(", "data.indicator(", "at.get(", "sse.patch_elements("]:
+        assert name in text
+    assert "Datastar Pro only" in text
+    assert "data.persist()" not in skill_text("stario-feature")
+    assert "stario-datastar" in guide_text()
 
 
 def test_feature_skill_browser_check_owns_its_server():
