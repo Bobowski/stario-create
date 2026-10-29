@@ -1,6 +1,7 @@
 """stario-create command line.
 
-Two commands: `new` scaffolds an app, `sync` refreshes its guide, skills, and Cloud Agent files.
+Three commands: `new` scaffolds an app, `add` writes a kit of tested files into it,
+and `sync` refreshes its guide, skills, and Cloud Agent files.
 Output is plain text. Errors print `stario-create: <message>` to stderr, with
 a `hint:` line when there is one, and exit 1.
 """
@@ -13,6 +14,7 @@ import sys
 from pathlib import Path
 
 from stario_create import TRACKS_STARIO, __version__
+from stario_create.kits import KITS, add_kit
 from stario_create.scaffold import (
     DEV_REQS,
     STARIO_REQ,
@@ -90,6 +92,26 @@ def cmd_new(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_add(args: argparse.Namespace) -> int:
+    if args.kit is None:
+        for name, kit in KITS.items():
+            print(f"{name:10} {kit.help}")
+        return 0
+    root = Path.cwd()
+    added = add_kit(root, args.kit)
+    if added.deps and not args.no_deps:
+        _run(["uv", "add", *added.deps], root)
+    for rel in added.written:
+        print(f"wrote {rel}")
+    for rel, src in added.merge:
+        print(f"merge by hand: {rel} (you changed it; the kit version is {src})")
+    if not added.written and not added.merge:
+        print("up to date")
+    for line in added.next:
+        print(f"next: {line}")
+    return 0
+
+
 def cmd_sync(args: argparse.Namespace) -> int:
     root = Path.cwd()
     if args.check:
@@ -132,6 +154,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--no-verify", action="store_true", help="skip the post-scaffold test run")
     p.set_defaults(func=cmd_new)
+
+    p = sub.add_parser("add", help="write a kit of tested files into this app")
+    p.add_argument("kit", nargs="?", default=None, help="the kit; omit it to list the kits")
+    p.add_argument("--no-deps", action="store_true", help="do not run `uv add` for the kit")
+    p.set_defaults(func=cmd_add)
 
     p = sub.add_parser("sync", help="update AGENTS.md, skills, and missing Cloud Agent files")
     p.add_argument("--check", action="store_true", help="exit 1 when the guide or a skill is stale")

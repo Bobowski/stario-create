@@ -24,9 +24,24 @@ just check   # lint, format, types, tests — run before done
 - `AGENTS.md` at the app root (Claude Code reads it directly).
 - The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
+- `tests/test_pages.py`: the page check that replaces a browser for HTML.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
 `new` also writes a `.dockerignore`. It writes no `Dockerfile`: Yard detects a Stario app and writes the Containerfile itself (stario.dev/yard/what-runs). `new` takes `--dir` to pick the parent directory, `--force` to write into a non-empty one, and `--orjson` to add orjson and set it as the `stario.json` codec.
+
+## Adding a kit
+
+A kit is a set of tested files. Run it at the app root:
+
+```bash
+stario-create add            # list the kits
+stario-create add auth       # session cookie, login, sign-up, logout, tests; adds litewriter
+stario-create add tailwind   # Tailwind v4 and DaisyUI recipes, input.css, shell, theme switch
+stario-create add browser    # scripts/browser.py, the rare Playwright check
+stario-create add pages      # tests/test_pages.py, for an app from before 5.7
+```
+
+`add` writes each missing file. It replaces a file that still equals the scaffold version. It keeps a file that you changed and prints `merge by hand: <file>` with the path of the kit version. It appends the Tailwind recipes to the `justfile` once. `--no-deps` skips `uv add`.
 
 ## Syncing an app
 
@@ -78,9 +93,8 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | `stario-view` | A page has a sort, a filter, paging, or a search as you type. |
 | `stario-relay` | A live page keeps its state in memory, a command tells only its own tab something, or a page has an edit dialog. |
 | `stario-jobs` | A command starts slow work: a job with queued, running, and done. |
-| `stario-browser-check` | Before a browser: the test that answers each question about HTML, and the rare Playwright script. |
-| `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected pages. |
-| `stario-login` | The users table, the login page, sign-up, logout, and their tests. Load it with `stario-auth`. |
+| `stario-browser-check` | Before a browser: the test that answers each question about a page, and the two cases where a browser is right. |
+| `stario-auth` | The app needs accounts: `stario-create add auth`, protected pages, rows that belong to one user. |
 | `stario-api` | Any handler, view, or test code: every signature of `c`, `w`, `h.*`, Relay, Span, TestClient, `data.*`, `at.*`, `SSE`, and how a morph treats the page. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |

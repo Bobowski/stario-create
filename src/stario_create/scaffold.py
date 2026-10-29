@@ -121,6 +121,7 @@ def scaffold_files(
     w("tests/conftest.py", _fill("tests/conftest.py.tmpl"))
     w("tests/test_home.py", _fill("tests/test_home.py.tmpl"))
     w("tests/test_js.py", _fill("tests/test_js.py.tmpl"))
+    w("tests/test_pages.py", template("tests/test_pages.py").read_text())
 
     w("justfile", template("justfile").read_text())
     w(".dockerignore", template("dockerignore").read_text())

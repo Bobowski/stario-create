@@ -6,14 +6,14 @@ Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the 
 
 ## Which skill
 
-The skills are in `.agents/skills/`. Load `stario-api` before you write a handler, a view, or a test. Then load the skill for the task:
+The skills are in `.agents/skills/`. Load `stario-api` before you write a handler, a view, or a test. `stario-create add <kit>` writes tested files. Then load the skill for the task:
 
 - A static page (no command): no skill. Write `urls.py`, `views.py`, and a page class with one `show` (Code shape).
 - A page that every tab sees change, in SQLite: `stario-feature` and `stario-litewriter`.
 - State in memory, a message to one tab, an edit dialog: `stario-relay`.
 - A sort, a filter, paging, a search as you type: `stario-view`.
 - Work that takes seconds: `stario-jobs`.
-- Login and accounts: `stario-auth` and `stario-login`. Styles: `stario-tailwind-daisyui`. JavaScript: `stario-client`.
+- Login and accounts: `stario-auth`. Styles: `stario-tailwind-daisyui`. JavaScript: `stario-client`.
 - Before a browser or a screenshot: `stario-browser-check`.
 
 ## Layout
@@ -79,9 +79,9 @@ The stream follows one source. Rows in SQLite: `db.watch(query)` (skill `stario-
 3. Reply: `w.empty()` (204), `SSE(w).patch_signals(...)` to clear an input or show a message, or `SSE(w).navigate(url)`. A 303 to a Datastar request does not change the URL.
 4. Execute: change state. A stream on `db.watch` needs nothing more. A stream on a `Relay` needs `relay.publish(CHANGED, {})`.
 
-After the reply, `await db.write(...)`: the browser has its answer, and a failure reaches the span. `db.push` only a write that nothing reads soon after (a counter, a last-seen stamp); a read after a push can run before its commit. A domain outcome is `c.span.event(...)`; a domain failure is `c.span.fail(...)`.
+After the reply, `await db.write(...)`: the browser has its answer, and a failure reaches the span. `db.push` only a counter or a last-seen stamp. A domain outcome is `c.span.event(...)`; a domain failure is `c.span.fail(...)`.
 
-The signals are the state of one tab. A command that tells its tab something after the work publishes signals: `relay.publish(f"tab.{tab}", {"_error": text})`. The stream sends `sse.patch_signals(signals)`. `data.text`, `data.show`, and `data.class_` keep their value through a repaint. A toast is the shell's `_toast` signal.
+The signals are the state of one tab. A command that tells its tab something after the work publishes `relay.publish(f"tab.{tab}", {"_error": text})` (skill `stario-relay`). A toast is the shell's `_toast` signal.
 
 The page stops empty input before it is sent: `required`, `maxlength`, `data.attr("disabled", ...)`. The server checks again.
 
@@ -168,7 +168,7 @@ A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=
 
 Check what you changed, at the cost the change needs. A handler, a query, a stream: a `TestClient` test. A style: `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyright checks each call, and when the stream test shows the new HTML, the browser shows it. Read their source only when pyright or a test fails. After a Python change and before a push: `just check`; fix every failure.
 
-A browser is only for client JS that holds state, or a browser bug that no test reproduces. When the user watches the app, the user is the browser: make the change and say what to look at. When the user says it does not work: `curl` their server, then a failing test. Browser check: skill `stario-browser-check` names the test for each question first.
+`tests/test_pages.py` checks each linked page for an action with no route, an undefined `$signal`, a stream that changes its element, and a `<dialog>` that closes. A browser is only for client JS that holds state, or a bug that the HTML does not show. Never for a page, a form, a live update, a login, or a style. No computer use. When the user watches the app, the user is the browser: say what to look at. When it does not work: `curl` their server, then a failing test (skill `stario-browser-check`).
 
 ## Common mistakes
 

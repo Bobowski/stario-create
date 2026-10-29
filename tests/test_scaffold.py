@@ -1,7 +1,6 @@
 import importlib
 import importlib.util
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -12,7 +11,7 @@ from typing import cast
 
 import pytest
 
-from stario_create.data import guide_text, resource, skill_names, template
+from stario_create.data import guide_text, skill_names, template
 from stario_create.scaffold import scaffold_files
 
 CLI = [sys.executable, "-m", "stario_create.cli"]
@@ -326,10 +325,7 @@ def test_tailwind_recipe_parses(tmp_path: Path):
     just = shutil.which("just")
     if just is None:
         pytest.skip("just is not on PATH")
-    text = resource("skills/stario-tailwind-daisyui/SKILL.md").read_text()
-    block = re.search(r"```make\n(.*?)```", text, re.S)
-    assert block is not None
-    (tmp_path / "justfile").write_text(block.group(1))
+    (tmp_path / "justfile").write_text(template("kits/tailwind/justfile").read_text())
     out = subprocess.run([just, "--summary"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
     for name in ("tailwind", "css", "css-watch"):
@@ -372,8 +368,7 @@ def test_scaffold_shell_loads_scripts(tmp_path: Path):
 
 
 def test_tailwind_shell_loads_scripts_before_datastar():
-    text = resource("skills/stario-tailwind-daisyui/SKILL.md").read_text()
-    shell = text.split("## The shell", 1)[1].split("## ", 1)[0]
+    shell = template("kits/tailwind/app/common/shell.py").read_text()
     assert "for src in SCRIPTS" in shell
     assert shell.index("for src in SCRIPTS") < shell.index("ModuleScript(DATASTAR_JS)")
 
