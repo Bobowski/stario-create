@@ -22,8 +22,8 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://stario.dev"
-Repository = "https://github.com/bobowski/stario-create"
-Issues = "https://github.com/bobowski/stario-create/issues"
+Repository = "https://github.com/stariodev/stario-create"
+Issues = "https://github.com/stariodev/stario-create/issues"
 
 [project.scripts]
 stario-create = "stario_create.cli:main"

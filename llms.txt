@@ -5,7 +5,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 ## Start here
 
 - [AGENTS.md](https://stario.dev/AGENTS.md): the app guide. Copy it into every Stario repo. Layout, invariants, the CQRS default, render from state, signals, code shape, tests, common mistakes.
-- [stario-create](https://github.com/bobowski/stario-create): `uvx stario-create new my-app` creates a runnable app with the guide, the skills, and a `justfile`.
+- [stario-create](https://github.com/stariodev/stario-create): `uvx stario-create new my-app` creates a runnable app with the guide, the skills, and a `justfile`.
 - [llms-full.txt](https://stario.dev/llms-full.txt): the guide and the skills in one file, for tools that want more context.
 - [The Stario way](https://stario.dev/docs/explanation/the-stario-way): why Stario is shaped this way.
 
@@ -35,9 +35,9 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 ## Examples
 
-- [chat-room](https://github.com/bobowski/stario/tree/main/examples/chat-room): the reference project tree.
-- [tiles](https://github.com/bobowski/stario/tree/main/examples/tiles): single-file live board.
-- [hello-world](https://github.com/bobowski/stario/tree/main/examples/hello-world): one route, one page.
+- [chat-room](https://github.com/stariodev/stario/tree/main/examples/chat-room): the reference project tree.
+- [tiles](https://github.com/stariodev/stario/tree/main/examples/tiles): single-file live board.
+- [hello-world](https://github.com/stariodev/stario/tree/main/examples/hello-world): one route, one page.
 
 ## Defaults in one paragraph
 

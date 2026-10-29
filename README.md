@@ -1,6 +1,6 @@
 # stario-create
 
-The project tool and agent guidance for building apps with [Stario](https://stario.dev). This repo tracks Stario 5. The framework itself lives at [bobowski/stario](https://github.com/bobowski/stario).
+The project tool and agent guidance for building apps with [Stario](https://stario.dev). This repo tracks Stario 5. The framework itself lives at [stariodev/stario](https://github.com/stariodev/stario).
 
 Two things ship from here:
 
@@ -68,7 +68,7 @@ asyncio_mode = "auto"
 
 Stario does not read `.env`. Configure with environment variables; `serve` reads `STARIO_*` through `ServerConfig.from_env()`. `STARIO_PORT` changes the port.
 
-The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx skills add bobowski/stario-create`.
+The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx skills add stariodev/stario-create`.
 
 ## Skills
 
@@ -81,7 +81,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |
 | `stario-client` | The page needs JavaScript: where it goes and how Python calls it. |
 
-`npx skills add bobowski/stario-create` also works — it reads the `skills/` tree at this repo root.
+`npx skills add stariodev/stario-create` also works — it reads the `skills/` tree at this repo root.
 
 ## Served copies
 
