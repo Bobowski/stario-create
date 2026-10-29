@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@source not "../../tailwindcss";
+@source not "../daisyui{,*}.mjs";
+@source "../../app/**/*.py";
+
+@plugin "../daisyui.mjs" {
+  themes: light --default, dark --prefersdark;
+}
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));

@@ -4,6 +4,37 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.7.0
+
+### Added
+
+- `stario-create add <kit>` writes tested files into an app. It writes a
+  missing file, replaces a file that still equals the scaffold version,
+  and prints `merge by hand` for a file that the app changed.
+  - `auth`: `app/common/session.py`, the login and sign-up pages, the
+    users table, the `Config` fields, the wiring in `main.py`, and the
+    tests. It adds `litewriter`.
+  - `tailwind`: the `justfile` recipes (the binary and DaisyUI, pinned),
+    `input.css`, the shell with the theme restore, and `theme.js`.
+  - `browser`: `scripts/browser.py`. It starts the app on a free port with
+    the settings in `.env`, waits for the port, prints console errors, and
+    saves a screenshot.
+  - `pages`: the page check, for an app from before 5.7.
+- `stario-create new` writes `tests/test_pages.py`. It opens `/`, follows
+  every local link, and fails on an action with no route, an undefined
+  `$signal`, a stream that changes its element, a `<dialog>` that closes on
+  a repaint, and a duplicate `id`. A page test can call `check(client, url)`
+  after it adds rows.
+
+### Changed
+
+- `stario-auth` (4 KB) and `stario-tailwind-daisyui` (4 KB) run the kit and
+  explain the files. They no longer hold the code. `stario-login` is gone.
+- A browser is for two cases only: client JavaScript that holds state, and
+  a bug that `curl` and a test show as correct. `AGENTS.md` says no
+  computer use. `stario-browser-check` maps each question about a page to
+  its test.
+
 ## 5.6.0
 
 ### Changed

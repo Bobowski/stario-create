@@ -6,7 +6,7 @@ import textwrap
 
 import pytest
 
-from stario_create.data import guide_text, skill_names, skill_text
+from stario_create.data import guide_text, skill_names, skill_text, template
 
 PROFILES = ["app", "api"]
 
@@ -80,7 +80,8 @@ def test_guide_sends_only_what_a_person_must_see_to_a_browser():
     text = guide_text()
     assert "## Checks" in text
     assert "the user is the browser" in text
-    assert "Browser check" in text
+    assert "stario-browser-check" in text
+    assert "No computer use." in text
     assert "Playwright" not in text
     assert "pyright checks each call" in text
 
@@ -95,12 +96,12 @@ def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
 
 
 def test_browser_check_owns_its_server():
-    text = skill_text("stario-browser-check")
-    assert "timeout=2" in text
-    assert "async_playwright" in text
-    assert "playwright install chromium" in text
-    assert 's.bind(("127.0.0.1", 0))' in text
-    assert "server.terminate()" in text
+    assert "stario-create@latest add browser" in skill_text("stario-browser-check")
+    assert "playwright install chromium" in skill_text("stario-browser-check")
+    script = template("kits/browser/scripts/browser.py").read_text()
+    assert "async_playwright" in script
+    assert 's.bind(("127.0.0.1", 0))' in script
+    assert "server.terminate()" in script
 
 
 @pytest.mark.parametrize("name", skill_names())

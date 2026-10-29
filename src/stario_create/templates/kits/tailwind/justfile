@@ -1,0 +1,36 @@
+
+# get the pinned Tailwind CLI and DaisyUI; css and css-watch run this first
+tailwind:
+    #!/usr/bin/env sh
+    set -eu
+    v=v4.3.3
+    du=v5.7.50
+    for f in daisyui daisyui-theme; do
+      if [ ! -f "frontend/$f.mjs" ]; then
+        curl -fL --retry 3 -o "frontend/$f.mjs" "https://github.com/saadeghi/daisyui/releases/download/$du/$f.mjs"
+      fi
+    done
+    bin="$HOME/.cache/tailwindcss/$v/tailwindcss"
+    if [ "$(readlink tailwindcss 2>/dev/null)" = "$bin" ] && [ -x "$bin" ]; then exit 0; fi
+    case "$(uname -s):$(uname -m)" in
+      Darwin:arm64) a=macos-arm64 ;;
+      Darwin:x86_64) a=macos-x64 ;;
+      Linux:x86_64 | Linux:amd64) a=linux-x64 ;;
+      Linux:aarch64 | Linux:arm64) a=linux-arm64 ;;
+      *) echo "no Tailwind build for $(uname -s) $(uname -m)" >&2; exit 1 ;;
+    esac
+    if [ ! -x "$bin" ]; then
+      mkdir -p "$(dirname "$bin")"
+      curl -fL --retry 3 -o "$bin.part" "https://github.com/tailwindlabs/tailwindcss/releases/download/$v/tailwindcss-$a"
+      chmod +x "$bin.part"
+      mv "$bin.part" "$bin"
+    fi
+    ln -sfn "$bin" tailwindcss
+
+# build the stylesheet once
+css: tailwind
+    ./tailwindcss -i frontend/src/input.css -o static/css/output.css --minify
+
+# rebuild the stylesheet on change; run next to `just dev`
+css-watch: tailwind
+    ./tailwindcss -i frontend/src/input.css -o static/css/output.css --watch

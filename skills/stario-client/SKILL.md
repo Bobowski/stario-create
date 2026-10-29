@@ -124,6 +124,8 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 
 `tests/test_js.py` collects every `app.<name>.<method>` in the strings of `app/**/*.py` and asserts that `static/js/<name>.js` defines it. A rename or a typo fails `just check`. `stario-create new` writes it; copy it from a new app into an older one.
 
+A file that holds state (a drag, a ruler) is the one case for a browser (skill `stario-browser-check`). Check that one interaction, then stop.
+
 ## Common mistakes
 
 | Avoid | Do |
