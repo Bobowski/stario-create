@@ -76,6 +76,7 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 | --- | --- |
 | `stario-feature` | You add, change, or remove one page: a resource with its own URL. |
 | `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected pages. |
+| `stario-handler` | You write handler or test logic: `Context`, the query, headers, cookies, `Writer`, `Relay`, `Span`, middleware, `h.*` tags, `TestClient`. |
 | `stario-datastar` | You write a `data.*` attribute, an `at.*` action, or an `SSE` call: every signature, the Pro-only list, and how a morph treats the page. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |

@@ -159,23 +159,28 @@ Rules for a write function:
 - Related changes go in one write function. Writes awaited one after another each wait for a commit.
 - A taken unique value raises `apsw.ConstraintError`. A command catches it and sends the message to its tab.
 
-## The stream
+## The stream: `watch`
 
-The stream follows one source.
-
-**Rows only: `watch`.** The commands write, and no publish is needed. The first read is the rows now. Each later read comes after a commit that changed them. Equal rows do not wake, and a slow stream gets the newest rows, not a backlog. Only commits through this `LiteWriter` wake a watch.
+`watch` is the default source for a live page whose state is rows. The commands only write; nothing publishes. Use `Relay` only when a command must also tell its own tab something (a conflict, a toast).
 
 ```python
 async def live(self, c: Context, w: Writer) -> None:
+    view = TodosView.from_query(c.req.query)
     sse = SSE(w)
-    async with self.db.watch(TODOS, Todo) as rows:
+    async with self.db.watch(TODOS_SORTED[view.sort], Todo, done=view.done) as rows:
         async for todos in c.alive(rows):
-            sse.patch_elements(render(todos))
+            sse.patch_elements(render(todos, view))
 ```
 
-**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes. The complete page is in skill `stario-feature` (A live page).
+- The first iteration gives the rows now. Each later one comes after a commit that writes a table and column that the query reads.
+- A virtual column wakes when its `data` changes. Equal rows after a commit do not wake. A slow stream gets the newest rows, not a backlog.
+- `into` builds each row the way `db.query` does, and runs only when the rows change.
+- Values are parameters: `db.watch(SQL, Todo, done=0)`. `ORDER BY` and column names cannot be parameters. Keep one fixed SQL text per sort key and pick it from the view: `TODOS_SORTED = {"new": "... ORDER BY id DESC", "title": "... ORDER BY title"}`.
+- A new sort or filter is a link to a new URL. The page opens a new stream with the new query; the old stream closes.
+- Only commits through this `LiteWriter` wake a watch. A write from another process does not.
+- Test it like any live page: open the stream, read the first event, send the command, assert the next event. `await db.write(...)` in the command commits before the stream reads again.
 
-A watch with a view puts the view's values in parameters: `db.watch(TODOS_BY_DONE, Todo, done=0)`.
+**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes. The complete page is in skill `stario-feature` (A live page).
 
 ## Jobs that outlive the process
 

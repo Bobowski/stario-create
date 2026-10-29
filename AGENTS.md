@@ -4,7 +4,7 @@ How to build a Stario app, unless the developer asks for something else.
 
 Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
 
-Skills in `.agents/skills/`: `stario-feature` (a page), `stario-datastar` (`data.*`, `at.*`, `SSE`), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
+Skills in `.agents/skills/`: `stario-feature` (a page), `stario-handler` (`c`, `w`, `h`), `stario-datastar` (`data.*`, `at.*`, `SSE`), `stario-litewriter` (SQLite), `stario-auth` (login), `stario-tailwind-daisyui` (CSS), `stario-client` (JS).
 
 ## Layout
 

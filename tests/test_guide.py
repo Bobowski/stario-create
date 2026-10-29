@@ -122,3 +122,24 @@ def test_feature_skill_indicator_sits_on_the_sending_element():
                     and "data.indicator(" in (ast.get_source_segment(src, node) or "")
                 ):
                     pytest.fail("data.indicator on h.Button inside a submitting h.Form")
+
+
+def test_handler_skill_lists_the_server_api():
+    text = skill_text("stario-handler")
+    for name in [
+        "c.req.query",
+        "ParsedQuery",
+        "w.empty()",
+        "relay.subscribe(",
+        "security_headers()",
+        "TestClient(",
+    ]:
+        assert name in text
+    assert "stario-handler" in guide_text()
+    assert "stario-handler" in skill_text("stario-feature")
+
+
+def test_litewriter_skill_teaches_watch_with_a_sort():
+    text = skill_text("stario-litewriter")
+    assert "## The stream: `watch`" in text
+    assert "`ORDER BY` and column names cannot be parameters" in text

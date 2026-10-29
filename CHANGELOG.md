@@ -4,6 +4,21 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.5.0
+
+### Changed
+
+- New skill `stario-handler`: what a handler has to work with — App,
+  Route, Context (`c.req.query` is a `ParsedQuery`), headers, cookies,
+  Writer, Relay, Span, middleware (`security_headers()` sets no CSP),
+  `h.*` tags explained as rules instead of a list, and TestClient.
+  Eval agents read `site-packages` for exactly these.
+- `stario-feature` drops its API card and points to `stario-handler` and
+  `stario-datastar`; it keeps the architecture, steps, and complete files.
+- `stario-litewriter` has a full `watch` section: what wakes it, `into`,
+  parameters, one fixed SQL text per sort key (`ORDER BY` cannot be a
+  parameter), and how to test it.
+
 ## 5.4.0
 
 ### Changed
