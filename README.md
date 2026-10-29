@@ -22,7 +22,7 @@ just check   # lint, format, types, tests — run before done
 - The feature-folder layout with one static `home` page.
 - `static/js/datastar.js` vendored.
 - `AGENTS.md` at the app root (Claude Code reads it directly).
-- The five skills installed into `.agents/skills/` and linked from `.claude/skills/`.
+- The skills installed into `.agents/skills/` and linked from `.claude/skills/`.
 - A `justfile` (`dev`, `serve`, `check`, `fix`, `test`, `sync`). Without `just`, the recipes are plain commands — run them directly.
 - The app's own tests, run once so the scaffold starts green (`--no-verify` skips that).
 
@@ -74,8 +74,13 @@ The guide and the skills are also at https://stario.dev/AGENTS.md and via `npx s
 
 | Skill | Use it when |
 | --- | --- |
-| `stario-feature` | You add, change, or remove one page: a resource with its own URL. |
+| `stario-feature` | You add a live page in SQLite that every tab sees change, remove a page, or split a folder that grew. |
+| `stario-view` | A page has a sort, a filter, paging, or a search as you type. |
+| `stario-relay` | A live page keeps its state in memory, a command tells only its own tab something, or a page has an edit dialog. |
+| `stario-jobs` | A command starts slow work: a job with queued, running, and done. |
+| `stario-browser-check` | Before a browser: the test that answers each question about HTML, and the rare Playwright script. |
 | `stario-auth` | The app needs login: a signed session cookie, `c.state["user"]`, protected pages. |
+| `stario-login` | The users table, the login page, sign-up, logout, and their tests. Load it with `stario-auth`. |
 | `stario-api` | Any handler, view, or test code: every signature of `c`, `w`, `h.*`, Relay, Span, TestClient, `data.*`, `at.*`, `SSE`, and how a morph treats the page. |
 | `stario-litewriter` | The app stores data in SQLite through `litewriter`: one writer thread, JSON tables with virtual columns, `watch` repaints a live page after a commit. |
 | `stario-tailwind-daisyui` | The app is styled with Tailwind v4 and DaisyUI through the standalone binary. No Node. |

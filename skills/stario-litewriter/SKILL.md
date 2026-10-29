@@ -5,13 +5,13 @@ description: SQLite in a Stario app through litewriter (one writer thread, group
 
 # SQLite with litewriter
 
-litewriter is the SQLite store for a Stario app. Use it when the developer wants data on disk; an app with no persistent data needs no database. One SQLite file. One writer thread. Reads from any thread on their own connection. `watch` wakes a stream after a commit changes the rows it reads. It needs CPython 3.14.
+litewriter is the SQLite store for a Stario app, when the developer wants data on disk. One SQLite file. One writer thread. Reads from any thread. `watch` wakes a stream after a commit changes the rows it reads.
 
 ```bash
 uv add "litewriter>=0.3.2,<0.4"
 ```
 
-Version 0.3.2 wakes a `watch` on a virtual column when its `data` changes. Source and full reference: https://github.com/Bobowski/litewriter
+Source: https://github.com/Bobowski/litewriter
 
 ## API at a glance
 
@@ -61,7 +61,7 @@ async def bootstrap(app: App, span: Span):
         yield
 ```
 
-`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR`, or `./data` on a laptop. Yard sets `PROJECT_DATA_DIR=/data`, a host directory that survives every deploy, so the database survives too. A second file, such as an upload, also goes in `config.data_dir`. `async with` claims the file, runs `schema` once in one transaction, starts the writer, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`, so two servers never write one file. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper module goes around it.
+`config.db_path` is `app.sqlite3` in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys), or `./data` on a laptop. An upload also goes in `config.data_dir`. `async with` claims the file, runs `schema` in one transaction, serves, then drains and closes after `yield`. `claim=30` makes a second process wait 30 seconds, then raise `ClaimBusy`. Each page with tables adds one line to `schema`. Pass `db` to each page class. No wrapper goes around it.
 
 ## Tables: `id` plus `data`
 
@@ -109,10 +109,8 @@ from stario.json import dumps
 
 
 def add_todo(tx: Tx, title: str) -> int:
-    return tx.value(
-        "INSERT INTO todos (data) VALUES (:data) RETURNING id",
-        data=dumps({"title": title, "done": False}),
-    )
+    data = dumps({"title": title, "done": False})
+    return tx.value("INSERT INTO todos (data) VALUES (:data) RETURNING id", data=data)
 
 
 def set_title(tx: Tx, todo_id: int, title: str) -> None:
@@ -135,73 +133,49 @@ row = db.one("SELECT id, title, done FROM todos WHERE id = :id", Todo, id=3)
 count = db.value("SELECT count(*) FROM todos")
 ```
 
-`:name` in the SQL takes the keyword argument `name`. `one` returns `None` when there is no row; `value` raises. The second positional argument builds each row. A rare large read (an export, a report over every row) awaits `db.aquery(...)` (or `aone`, `avalue`), which runs on a worker thread.
-
-SQL text is the default. A `Select` (`from litewriter import Select, col, param`) helps when a page composes one query with many filters. Values from outside are always `:name` parameters. An f-string may paste only a constant of the same file: a column name, an `ORDER BY` from a fixed dict.
+`:name` in the SQL takes the keyword argument `name`. `one` returns `None` when there is no row; `value` raises. The second positional argument builds each row. A large read (an export) awaits `db.aquery(...)` on a worker thread. Every outside value is a `:name` parameter. An f-string may paste only a constant of the same file.
 
 ## Writes
 
-A write is a plain `def` whose first argument is `tx`. The writer runs it on its own thread inside one transaction and commits in a batch. You do not commit. Put the write functions in the page's `data.py` next to the reads.
+A write is a plain `def` whose first argument is `tx`, in the page's `data.py`. The writer runs it in one transaction and commits in a batch. You do not commit. A command reads, validates, replies, and then writes:
 
-A command reads, validates, replies, and then writes:
-
-- `await db.write(fn, ...)` is the default. The browser has its answer already, so the wait (up to one commit, 1/60 s) costs it nothing. The handler gets the result or the exception, so a publish, a message to the tab, or a span event can follow. A failure reaches the request span.
-- `db.push(fn, ...)` returns before the commit. A read soon after it (the next command's validation, a reload, a test) can run before the commit and miss the row. A failure goes to `on_error` (by default the `litewriter` logger), not to the span. Push only a write that nothing reads soon after and that may be lost: a counter, a last-seen stamp.
-- On a plain thread (a sync test, a worker in `asyncio.to_thread`), `db.submit(fn, ...).result()`. `.result()` on the loop raises `StateError`.
-
-`TestClient` returns from `client.post(...)` when the handler ends, so a test after an awaited write sees the row. After a push, it does not.
+- `await db.write(fn, ...)` is the default. The browser has its answer already, so the wait (up to 1/60 s) costs it nothing. The handler gets the result or the exception, and a failure reaches the request span.
+- `db.push(fn, ...)` returns before the commit, so a read soon after it can miss the row. A failure goes to the `litewriter` logger. Push only a counter or a last-seen stamp.
+- On a plain thread: `db.submit(fn, ...).result()`. On the loop it raises `StateError`.
 
 Rules for a write function:
 
-- It holds the whole batch. No network, no sleep, no password hash inside it: do that before the call.
-- Read inside it with `tx.query`, `tx.one`, `tx.value`. `db.query` on the writer thread raises `StateError`. Do not keep `tx` after the function returns.
-- Each write runs in its own savepoint. When it raises, only that write is undone and only that caller gets the exception.
-- Related changes go in one write function. Writes awaited one after another each wait for a commit.
+- It holds the whole batch. No network, no sleep, no password hash inside it.
+- Read inside it with `tx.query`, `tx.one`, `tx.value`, never `db.query`. Do not keep `tx`.
+- Each write runs in its own savepoint. When it raises, only that write is undone.
+- Related changes go in one write function.
 - A taken unique value raises `apsw.ConstraintError`. A command catches it and sends the message to its tab.
 
 ## The stream: `watch`
 
-`watch` is the default source for a live page whose state is rows. The commands only write; nothing publishes. Use `Relay` only when a command must also tell its own tab something (a conflict, a toast).
+`watch` is the default source for a live page whose state is rows. The commands only write; nothing publishes.
 
 ```python
 async def live(self, c: Context, w: Writer) -> None:
     view = TodosView.from_query(c.req.query)
     sse = SSE(w)
-    async with self.db.watch(TODOS_SORTED[view.sort], Todo, done=view.done) as rows:
+    most = 0 if view.hide_done else 1
+    async with self.db.watch(SORTED[view.sort], Todo, most=most) as rows:
         async for todos in c.alive(rows):
             sse.patch_elements(render(todos, view))
 ```
 
 - The first iteration gives the rows now. Each later one comes after a commit that writes a table and column that the query reads.
-- The watch wakes only for columns that its query reads. A command that writes a new field the query does not select repaints nothing: add the field to the query, or read `data`.
-- A virtual column wakes when its `data` changes. Equal rows after a commit do not wake. A slow stream gets the newest rows, not a backlog.
-- `into` builds each row the way `db.query` does, and runs only when the rows change.
-- Values are parameters: `db.watch(SQL, Todo, done=0)`. `ORDER BY` and column names cannot be parameters. Keep one fixed SQL text per sort key and pick it from the view: `TODOS_SORTED = {"new": "... ORDER BY id DESC", "title": "... ORDER BY title"}`.
-- A new sort or filter is a link to a new URL. The page opens a new stream with the new query; the old stream closes.
+- The watch wakes only for columns that its query reads. A new field that the query does not select repaints nothing: add it to the query.
+- Equal rows after a commit do not wake. A slow stream gets the newest rows, not a backlog.
+- Values are parameters: `db.watch(SQL, Todo, most=0)`. `ORDER BY` and column names cannot be parameters. Keep one fixed SQL text per sort key and pick it from the view: `SORTED = {"new": "... ORDER BY id DESC", "title": "... ORDER BY lower(title)"}` (skill `stario-view`).
 - Only commits through this `LiteWriter` wake a watch. A write from another process does not.
-- Test it like any live page: open the stream, read the first event, send the command, assert the next event. `await db.write(...)` in the command commits before the stream reads again.
 
-**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes. The complete page is in skill `stario-feature` (A live page).
-
-## Jobs that outlive the process
-
-A job row in SQLite stays `running` when the process stops. Mark these rows in the schema function, so a restart leaves no job stuck:
-
-```python
-tx.execute(
-    "UPDATE jobs SET data = json_set(data, '$.status', 'failed', '$.result', 'interrupted')"
-    " WHERE status IN ('queued', 'running')"
-)
-```
-
-## Tests
-
-The scaffold's `tests/conftest.py` points `PROJECT_DATA_DIR` at `tmp_path`, and `Config.from_env()` runs inside `bootstrap`, so each test gets its own file. A live page still uses the stream test in `AGENTS.md`. That is the proof. Do not open a browser for a write.
+**Rows and messages to one tab: `Relay`.** The stream subscribes to `CHANGED` and `tab.<id>` and reads the rows again on each event. Each command awaits its write and then publishes (skill `stario-relay`).
 
 ## Rules
 
-- One `LiteWriter` per file per process. Open it in `bootstrap`. Pass it down. The claim is an `flock`: it releases when the holder dies, so a `ClaimBusy` means the holder is still alive.
+- One `LiteWriter` per file per process. The claim is an `flock`: a `ClaimBusy` means the holder is still alive.
 - On dev reload the old process must die before the new one claims. Run the watcher so the app is its direct child: `uv run watchfiles 'python -m app.main' app/ static/`. A `ClaimBusy` in dev means an orphan: find it with `lsof <db>.sqlite3-claim` and kill it.
-- Reads on the loop thread, short and indexed.
-- `:name` parameters for every outside value.
+- The scaffold's `tests/conftest.py` points `PROJECT_DATA_DIR` at `tmp_path`, so each test gets its own file.
 - `IF NOT EXISTS` on every `CREATE`. The schema function runs again on every start.
