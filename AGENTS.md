@@ -41,7 +41,7 @@ tests/test_<page>.py
 
 ## A page is a resource
 
-The path names the resource. The query holds how this tab views it: sort, filter, columns, page. A `View` dataclass in `urls.py` reads the query (`View.from_query(c.req.query)`) and writes it (`view.query()`). The page `GET` and the stream read the same view, so a reload or a shared link shows the same thing.
+The path names the resource. When a page has a sort, a filter, or paging, the query holds it: a `View` dataclass in `urls.py` reads the query (`View.from_query(c.req.query)`) and writes it (`view.query()`). The page `GET` and the stream read the same view, so a reload or a shared link shows the same thing. A page with nothing to choose has no `View`.
 
 Sort every user action:
 
@@ -52,16 +52,16 @@ Sort every user action:
 A page whose state cannot change while it is open is static: `w.html(render(...))`. A page on shared state that can change is live:
 
 ```text
-GET  /board        the first document, with a new tab id
+GET  /board        the first document
 GET  /board/live   an SSE stream that stays open and repaints the page
 POST /board/...    a command: read, validate, reply, execute
 ```
 
-1. `GET /board` renders `data.signals({"tab": uuid.uuid7().hex}, if_missing=True)` and `data.init(at.get(BOARD_LIVE.href(query=view.query()), retry="always"))`.
-2. The stream validates `tab`, subscribes, sends `render(...)`, then again after each event.
+1. `GET /board` renders `data.init(at.get(BOARD_LIVE.href(), retry="always"))` on its top element.
+2. The stream subscribes, sends `render(...)`, then again after each change.
 3. The stream is the only thing that sends HTML. A command never answers with HTML: other tabs would not see it.
 
-The stream follows one source. Rows only: `db.watch(query)` (skill `stario-litewriter`). Rows and messages for one tab: `relay.subscribe(CHANGED, f"tab.{tab}", latest=True)` on the one `Relay[dict]`. Subscribe before the first render. Subjects are constants.
+The stream follows one source. Rows in SQLite: `db.watch(query)` (skill `stario-litewriter`), the common case. State in memory: `relay.subscribe(CHANGED, latest=True)` on the one `Relay[dict]`. A command that must tell its own tab something adds a tab id and `tab.<id>` (`stario-feature`, Messages to one tab). Subscribe before the first render. Subjects are constants.
 
 ## Commands: read, validate, reply, execute
 
@@ -80,7 +80,7 @@ Slow work (a model call, a download) is a job. The command adds it as `queued`, 
 
 ## Render from state
 
-- `render(...)` returns the whole document from state, the view, the tab id, and the viewer when the page differs per user. It does not fetch. Datastar morphs only the changes.
+- `render(...)` returns the whole document from state, and the view, the tab id, or the viewer when the page has them. It does not fetch. Datastar morphs only the changes.
 - The element with `data.init(...)` and `data.signals(...)` keeps its tag, `id`, and attribute text in every render.
 - Write the tree inline in `render`. A helper view exists for a block in a loop. `page()` is `@baked`: each parameter is a whole child or attribute.
 
@@ -92,7 +92,7 @@ The server renders the state. Signals carry what the user types or picks, the ta
 - `data.bind("title")` ties an input to a signal. A leading `_` (`_error`) makes it local: Datastar does not send it.
 - One signal per field and one for the row being edited (`editing_id`), not one per row. Validate `editing_id` like any input.
 - The resource id is in the path, the view in the query, the user in a signed cookie (skill `stario-auth`). None is a signal.
-- Every command shows it is busy: `data.indicator("_saving")` on the element whose `data.on` sends it (the `<form>` for a submit), and `data.attr("disabled", "$_saving")` on its button.
+- A form that sends a command shows it is busy: `data.indicator("_saving")` on the `<form>`, and `data.attr("disabled", "$_saving")` on its button.
 - A `<dialog>` or `<details>` holds its own open state (`data.preserve_attr("open")`). A subtree the client owns gets `data.ignore_morph()`.
 
 ## Storage
@@ -118,7 +118,7 @@ class BoardPage:
 
     async def show(self, c: Context, w: Writer) -> None:
         view = BoardView.from_query(c.req.query)
-        w.html(render(list_tiles(self.db, view), view, uuid.uuid7().hex))
+        w.html(render(list_tiles(self.db, view), view))
 ```
 
 Where code goes:
@@ -145,15 +145,15 @@ Tests run the production `bootstrap` through `TestClient(bootstrap, request_time
 
 ```python
 async def test_paint_repaints_the_stream(client):
-    async with client.stream("GET", BOARD_LIVE.href(), params=TAB, timeout=2) as live:
+    async with client.stream("GET", BOARD_LIVE.href(), timeout=2) as live:
         events = live.iter_events()
         assert 'id="board"' in (await anext(events))["data"]
-        r = await client.post(PAINT.href(1), json={"color": "#ff0000", "tab": "t1"})
+        r = await client.post(PAINT.href(1), json={"color": "#ff0000"})
         assert r.status_code == 204
         assert "#ff0000" in (await anext(events))["data"]
 ```
 
-`TAB = {"datastar": '{"tab": "t1"}'}`: a `GET` sends signals in `params`, a `POST` in `json=`. A `navigate` reply contains `window.location`. The client keeps cookies. `client.tracer.find_span("report.run")` finds a job span.
+A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=`. A `navigate` reply contains `window.location`. The client keeps cookies. `client.tracer.find_span("report.run")` finds a job span.
 
 ## Checks
 

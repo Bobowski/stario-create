@@ -15,6 +15,14 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
   Eval agents read `site-packages` for exactly these.
 - `stario-feature` drops its API card and points to `stario-handler` and
   `stario-datastar`; it keeps the architecture, steps, and complete files.
+- Simpler defaults, learned from the apps in production: most pages have
+  no sort or filter and never message one tab. The guide makes the `View`
+  and the tab id optional, names `db.watch` as the common stream, and
+  asks for a busy indicator on forms, not on every button. `stario-feature`
+  opens with the plain watch page (no view, no tab, no Relay), then shows
+  the view and tab messages as additions.
+- `stario-litewriter` says that a watch wakes only for columns its query
+  reads (a real bug: new fields never repainted the page).
 - `stario-litewriter` has a full `watch` section: what wakes it, `into`,
   parameters, one fixed SQL text per sort key (`ORDER BY` cannot be a
   parameter), and how to test it.

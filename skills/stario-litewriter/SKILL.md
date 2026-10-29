@@ -173,6 +173,7 @@ async def live(self, c: Context, w: Writer) -> None:
 ```
 
 - The first iteration gives the rows now. Each later one comes after a commit that writes a table and column that the query reads.
+- The watch wakes only for columns that its query reads. A command that writes a new field the query does not select repaints nothing: add the field to the query, or read `data`.
 - A virtual column wakes when its `data` changes. Equal rows after a commit do not wake. A slow stream gets the newest rows, not a backlog.
 - `into` builds each row the way `db.query` does, and runs only when the rows change.
 - Values are parameters: `db.watch(SQL, Todo, done=0)`. `ORDER BY` and column names cannot be parameters. Keep one fixed SQL text per sort key and pick it from the view: `TODOS_SORTED = {"new": "... ORDER BY id DESC", "title": "... ORDER BY title"}`.
