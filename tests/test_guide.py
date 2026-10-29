@@ -79,12 +79,12 @@ def test_guide_sends_only_what_a_person_must_see_to_a_browser():
 
 
 def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
-    text = skill_text("stario-datastar")
+    text = skill_text("stario-api")
     for name in ["data.on(", "data.bind(", "data.indicator(", "at.get(", "sse.patch_elements("]:
         assert name in text
     assert "Datastar Pro only" in text
     assert "data.persist()" not in skill_text("stario-feature")
-    assert "stario-datastar" in guide_text()
+    assert "stario-api" in guide_text()
 
 
 def test_feature_skill_browser_check_owns_its_server():
@@ -125,7 +125,7 @@ def test_feature_skill_indicator_sits_on_the_sending_element():
 
 
 def test_handler_skill_lists_the_server_api():
-    text = skill_text("stario-handler")
+    text = skill_text("stario-api")
     for name in [
         "c.req.query",
         "ParsedQuery",
@@ -135,8 +135,8 @@ def test_handler_skill_lists_the_server_api():
         "TestClient(",
     ]:
         assert name in text
-    assert "stario-handler" in guide_text()
-    assert "stario-handler" in skill_text("stario-feature")
+    assert "stario-api" in guide_text()
+    assert "stario-api" in skill_text("stario-feature")
 
 
 def test_litewriter_skill_teaches_watch_with_a_sort():

@@ -7,6 +7,8 @@ description: Style a Stario app with Tailwind CSS v4 and DaisyUI through the sta
 
 Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The standalone binary does the work. `npm`, `npx`, and `@tailwindcss/cli` are not used. DaisyUI gives component classes (`btn`, `card`, `modal`, `drawer`) on top of Tailwind, so most pages need no custom CSS.
 
+
+`h.*` tags, `classes(...)`, `data.*`, and the `STARIO_HOST`/`STARIO_PORT` settings are in skill `stario-api`.
 ## Install once
 
 ```bash

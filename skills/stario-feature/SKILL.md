@@ -26,10 +26,7 @@ description: Add, change, or remove a page (a resource with its own URL) in a St
 
 ## API
 
-The API lives in two skills. Do not read `site-packages` for a signature; pyright checks each call.
-
-- `stario-handler`: App, Route, Context (`c.req.query`, headers, cookies), Writer, Relay, Span, middleware, `h.*` tags, TestClient.
-- `stario-datastar`: every `data.*` attribute, every `at.*` action, `read_signals`, `SSE`, and how a morph treats the page.
+Load skill `stario-api` with this one. It has every signature: `c`, `w`, `h.*`, Relay, TestClient, `data.*`, `at.*`, `SSE`. Do not read `site-packages`.
 
 ## A static page
 

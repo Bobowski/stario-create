@@ -8,24 +8,24 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
-- New skill `stario-handler`: what a handler has to work with — App,
-  Route, Context (`c.req.query` is a `ParsedQuery`), headers, cookies,
-  Writer, Relay, Span, middleware (`security_headers()` sets no CSP),
-  `h.*` tags explained as rules instead of a list, and TestClient.
-  Eval agents read `site-packages` for exactly these.
-- `stario-feature` drops its API card and points to `stario-handler` and
-  `stario-datastar`; it keeps the architecture, steps, and complete files.
+- One API skill: `stario-api` replaces `stario-datastar`. It holds every
+  signature an agent needs — App, Route, Context (`c.req.query` is a
+  `ParsedQuery`), headers, cookies, Writer, Relay, Span, middleware
+  (`security_headers()` sets no CSP), `STARIO_HOST`/`STARIO_PORT`, `h.*`
+  tags as rules, TestClient, `data.*`, `at.*`, `read_signals`, `SSE`, and
+  how a morph treats the page. Evals showed agents load one or two skills
+  per task, so a split API skill was missed and they read `site-packages`.
+- `stario-feature` tells the agent to load `stario-api`, and drops its
+  own API card. `stario-client` and `stario-tailwind-daisyui` point to it.
 - Simpler defaults, learned from the apps in production: most pages have
   no sort or filter and never message one tab. The guide makes the `View`
-  and the tab id optional, names `db.watch` as the common stream, and
-  asks for a busy indicator on forms, not on every button. `stario-feature`
-  opens with the plain watch page (no view, no tab, no Relay), then shows
-  the view and tab messages as additions.
-- `stario-litewriter` says that a watch wakes only for columns its query
-  reads (a real bug: new fields never repainted the page).
-- `stario-litewriter` has a full `watch` section: what wakes it, `into`,
-  parameters, one fixed SQL text per sort key (`ORDER BY` cannot be a
-  parameter), and how to test it.
+  and the tab id optional, names `db.watch` as the common stream, and asks
+  for a busy indicator on forms, not on every button. `stario-feature`
+  opens with the plain watch page (no view, no tab, no Relay), then adds
+  the view and tab messages.
+- `stario-litewriter` has a full `watch` section: what wakes it (only the
+  columns its query reads), `into`, parameters, one fixed SQL text per
+  sort key (`ORDER BY` cannot be a parameter), and how to test it.
 
 ## 5.4.0
 
