@@ -27,6 +27,8 @@ ROUTE = Route("GET /rooms/{room_id}")
 ROUTE.href(room_id, query={"sort": "title"}, fragment=None)   # "/rooms/7?sort=title"
 ```
 
+`python -m app.main` listens on `STARIO_HOST` and `STARIO_PORT` (default `127.0.0.1:8000`).
+
 A literal segment beats a parameter: `/rooms/live` and `/rooms/{room_id}` both work, in any order.
 
 ## Context: `c`

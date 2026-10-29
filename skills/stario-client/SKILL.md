@@ -91,6 +91,7 @@ Every page loads every file; `Assets` fingerprints them, so the browser caches t
 
 ## Rules
 
+- `security_headers()` sets no Content-Security-Policy. An inline `<script>`, a `static/js/` file, and Datastar expressions all run.
 - **Datastar adds the listeners that the app reacts to.** `data.on("click", ...)`; `target="window"`, `"document"`, or `"outside"` for a page-wide event. Datastar removes them when the element leaves. A file never calls `addEventListener` on `window` or `document`. The one exception is `visualViewport`, from one `data.init` on the shell.
 - **Page-wide listeners sit on the shell element**, in one place:
 
