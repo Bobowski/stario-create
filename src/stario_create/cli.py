@@ -86,7 +86,7 @@ def cmd_new(args: argparse.Namespace) -> int:
     print(f"  cd {dest}")
     print("  just dev                     # http://127.0.0.1:8000, reloads on change")
     print("  just check                   # lint, types, tests — before done")
-    print("  Read AGENTS.md; the stario-feature skill adds a page.")
+    print("  Read AGENTS.md; its Which skill list names the skill for each task.")
     return 0
 
 

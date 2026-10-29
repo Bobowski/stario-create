@@ -11,9 +11,14 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 
 ## Skills (optional stacks)
 
-- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): add, change, or remove one page, with complete files.
+- [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): a live page in SQLite that every tab sees change; remove a page.
+- [stario-view](https://stario.dev/skills/stario-view/SKILL.md): a sort, a filter, or paging in the URL; search as you type.
+- [stario-relay](https://stario.dev/skills/stario-relay/SKILL.md): state in memory, a message to one tab, an edit dialog.
+- [stario-jobs](https://stario.dev/skills/stario-jobs/SKILL.md): slow work as a job with its own span.
+- [stario-browser-check](https://stario.dev/skills/stario-browser-check/SKILL.md): the test for each question about HTML, and the rare browser script.
 - [stario-api](https://stario.dev/skills/stario-api/SKILL.md): every signature: `c`, `w`, `h.*`, Relay, TestClient, `data.*`, `at.*`, `SSE`.
-- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, a login page, protected pages.
+- [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, protected pages.
+- [stario-login](https://stario.dev/skills/stario-login/SKILL.md): the users table, the login page, sign-up, and logout.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
 - [stario-client](https://stario.dev/skills/stario-client/SKILL.md): where JavaScript goes, and how Python calls `app.<name>`.

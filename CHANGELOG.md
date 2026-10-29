@@ -4,6 +4,44 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.6.0
+
+### Changed
+
+- Every skill fits in 9 KB. Devin's skill tool shows a skill inline at
+  9.0 KB and returns only a pointer at 15 KB, so the agent read
+  `stario-feature` (31 KB) and `stario-auth` (15 KB) in two or three more
+  calls. A test now holds the limit.
+- `stario-feature` is split by the words of the task:
+  - `stario-feature`: a live page in SQLite on `db.watch`, its stream tests
+    (two streams are two tabs), a command that goes to the page it made,
+    removing a page, and a folder that grew.
+  - `stario-view`: a sort, a filter, or paging in the URL, and search as
+    you type.
+  - `stario-relay`: a complete live page in memory, messages to one tab,
+    the edit dialog, and a value one tab remembers.
+  - `stario-jobs`: slow work as a complete page, with its test.
+  - `stario-browser-check`: the `TestClient` test for each question about
+    HTML, the order to find a bug, and the Playwright script.
+- `stario-auth` is split into `stario-auth` (the session, the `Config`
+  fields, the wiring, protected pages) and `stario-login` (the users
+  table, the login page, sign-up, logout, and the tests).
+- `AGENTS.md` opens with `## Which skill`: the skill for each task, and
+  `stario-api` before any code. A static page needs no skill.
+- `stario-api` and `stario-litewriter` are shorter. Every signature stays.
+
+### Fixed
+
+- `AGENTS.md`, Commands, step 4 said that every command publishes. A
+  stream on `db.watch` needs no publish.
+- The slow-work and edit-dialog examples were fragments. They are now
+  complete files, and every example of the split skills passed
+  `just check` in a new app.
+- The view example rejected a bad tab id with a message about the title.
+- `stario-litewriter` and the view example now use the same names.
+- `stario-tailwind-daisyui` no longer sends a class question to a browser
+  or to computer use.
+
 ## 5.5.0
 
 ### Changed

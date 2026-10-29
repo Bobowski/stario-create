@@ -22,6 +22,13 @@ def test_guide_fits_rule_loader_budget(profile):
     assert len(guide_text(profile).encode()) <= 12_000
 
 
+@pytest.mark.parametrize("name", skill_names())
+def test_skill_fits_inline(name):
+    # Devin's skill tool shows a skill inline at 9.0 KB and returns only a
+    # pointer at 15 KB; the agent then reads the file in parts.
+    assert len(skill_text(name).encode()) <= 9_000
+
+
 @pytest.mark.parametrize("profile", PROFILES)
 def test_guide_python_blocks_parse(profile):
     blocks = _python_blocks(guide_text(profile))
@@ -87,8 +94,8 @@ def test_datastar_skill_lists_the_api_and_the_pro_only_attributes():
     assert "stario-api" in guide_text()
 
 
-def test_feature_skill_browser_check_owns_its_server():
-    text = skill_text("stario-feature")
+def test_browser_check_owns_its_server():
+    text = skill_text("stario-browser-check")
     assert "timeout=2" in text
     assert "async_playwright" in text
     assert "playwright install chromium" in text
@@ -96,13 +103,14 @@ def test_feature_skill_browser_check_owns_its_server():
     assert "server.terminate()" in text
 
 
-def test_feature_skill_indicator_sits_on_the_sending_element():
+@pytest.mark.parametrize("name", skill_names())
+def test_indicator_sits_on_the_sending_element(name):
     """data.indicator belongs on the element whose data.on sends the request.
 
     A submit fetch belongs to the <form>, so a Button inside it must not
     carry the indicator (5.3.3 put it on the button; it never fires).
     """
-    for block in _python_blocks(skill_text("stario-feature")):
+    for block in _python_blocks(skill_text(name)):
         src = textwrap.dedent(block)
         tree = ast.parse(src)
         for form in ast.walk(tree):
@@ -143,3 +151,11 @@ def test_litewriter_skill_teaches_watch_with_a_sort():
     text = skill_text("stario-litewriter")
     assert "## The stream: `watch`" in text
     assert "`ORDER BY` and column names cannot be parameters" in text
+
+
+def test_guide_routes_each_task_to_a_skill():
+    text = guide_text()
+    assert "## Which skill" in text
+    assert "A static page (no command): no skill." in text
+    for name in skill_names():
+        assert f"`{name}`" in text.split("## Layout")[0]

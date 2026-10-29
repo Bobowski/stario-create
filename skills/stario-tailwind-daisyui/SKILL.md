@@ -7,8 +7,8 @@ description: Style a Stario app with Tailwind CSS v4 and DaisyUI through the sta
 
 Tailwind compiles `frontend/src/input.css` into `static/css/output.css`. The standalone binary does the work. `npm`, `npx`, and `@tailwindcss/cli` are not used. DaisyUI gives component classes (`btn`, `card`, `modal`, `drawer`) on top of Tailwind, so most pages need no custom CSS.
 
+`h.*` tags, `classes(...)`, and `data.*` are in skill `stario-api`.
 
-`h.*` tags, `classes(...)`, `data.*`, and the `STARIO_HOST`/`STARIO_PORT` settings are in skill `stario-api`.
 ## Install once
 
 ```bash
@@ -202,4 +202,4 @@ Rules:
 
 After you change a class, run `just css` and commit `static/css/output.css`. `just css` gets the binary on any machine, a Cloud Agent included.
 
-The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. Prove the link with `TestClient`. When a class does not apply in the browser, check that the literal appears in a `.py` file under `app/`, then rebuild. A live morph uses the Playwright script in `stario-feature`. Computer use is for whether the theme looks right.
+The page loads a stylesheet: `assert 'css/output' in r.text` in the page test. When a class does not apply, check that the literal is in a `.py` file under `app/`, then run `just css`. A test can assert it, with `ROOT` as in `tests/test_js.py`: `assert "btn-primary" in (ROOT / "static/css/output.css").read_text()`. Whether the theme looks right is a question for the user, who watches the app. Do not open a browser for a class.
