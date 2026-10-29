@@ -1,6 +1,6 @@
 ---
 name: stario-feature
-description: Add, change, or remove a page (a resource with its own URL) in a Stario app. Use when the user asks for a new page or route, wants a page to update live or in every tab, adds a button, form, command, edit dialog, search box, sort, filter, or background job to a page, fixes a page that does not refresh, deletes a page, or checks a live update in a browser. Has complete files for a static page, a private read, a live page with a view in the URL and messages to one tab, slow work, and an edit dialog, plus a Playwright script for the morph.
+description: Add, change, or remove a page (a resource with its own URL) in a Stario app. Use when the user asks for a new page or route, wants a page to update live or in every tab, adds a button, form, command, edit dialog, search box, sort, filter, or background job to a page, fixes a page that does not refresh, deletes a page, or needs a browser check. Has complete files for a static page, a private read, a live page with a view in the URL and messages to one tab, slow work, and an edit dialog, plus a browser check script.
 ---
 
 # Add, change, or remove a page
@@ -22,11 +22,11 @@ description: Add, change, or remove a page (a resource with its own URL) in a St
 2. `app/main.py`: build the shared objects once, then `TodosPage(db, relay).register(app)` before `yield`. Join the schema functions of every page into one `schema(tx)`.
 3. A link from another page: import its `urls.py`: `h.A({"href": TODOS.href(query={"sort": "title"})}, ...)`.
 4. `tests/test_<page>.py`: the page loads; the view follows the query; a command repaints the stream; bad input gets 4xx. Assert the changed HTML in the next SSE event. Do not open a browser for that.
-5. `just check`. Fix every failure. The Playwright script in "Check a live update" is for the morph, after the stream test is green.
+5. `just check`. Fix every failure. A browser is only for what `AGENTS.md` (Checks) names.
 
 ## API at a glance
 
-Import from `stario` unless noted. Do not grep site-packages for signatures.
+Import from `stario` unless noted. Do not read site-packages for signatures; pyright checks each call. Every `data.*`, `at.*`, and `SSE` signature is in skill `stario-datastar`.
 
 ```text
 app.add(ROUTE, handler)            # one method+path route; app.use("/prefix", mw)
@@ -45,16 +45,13 @@ set_cookie(w, "sid", token)        # stario.cookies; delete_cookie(w, "sid") cle
 
 signals = await read_signals(c.req)
 sse = SSE(w)                       # sse.patch_elements(part), sse.patch_signals({...}),
-                                 # sse.navigate(url), sse.execute_script(code)
+                                 # sse.navigate(url); the rest: stario-datastar
 
 data.signals({...}, if_missing=True)   data.bind("title")
 data.indicator("_saving")  # on the element whose data.on sends the request
 data.on("click", at.post(ADD.href()), prevent=True)
 data.init(at.get(LIVE.href(), retry="always"))
-data.text(e) data.show(e) data.attr("disabled", e) data.class_("on", e)
-data.preserve_attr("open")  data.ignore_morph()  data.persist()  # survives reload
-at.get(url, retry="always")   at.post(url)
-data.on("input", expr, debounce="200ms")         # also throttle, once, target=
+data.preserve_attr("open")  data.ignore_morph()  # the rest: stario-datastar
 from stario.markup import svg                    # svg.Svg, svg.Circle, svg.Path, ...
 
 STARIO_HOST / STARIO_PORT                        # ServerConfig.from_env, 127.0.0.1 / 8000
@@ -629,47 +626,57 @@ async def test_add_shows_on_another_tab(client):
         assert "milk" in (await anext(two))["data"]
 ```
 
-### Playwright, when the browser is the question
+### Browser check
 
-Run this after the stream test is green, and only when the question is whether Datastar applied the patch. The viewer's DOM changes because its SSE stream delivered the HTML and Datastar morphed it. Headless, one script, re-runnable. Leave `playwright` out of the app's dependencies, so `just check` stays the fast path. Both pages come from one browser context, so they share cookies the way two tabs do. `browser.new_page()` would open a second context and drop the session.
+Use it only for what `AGENTS.md` (Checks) sends to a browser: client JS that holds state, or a browser bug that no test reproduces. When the user watches the app, the user is the browser; skip this.
 
-`just dev` is already serving the app. Point the URL and the locators at the page you changed.
+The script starts its own server on a free port and stops it in `finally`. It never touches a server it did not start. Keep `playwright` out of the app's dependencies, so `just check` stays fast. Both pages share one browser context, so they share cookies like two tabs.
 
 ```python
-# check_live.py
+# scripts/browser.py
 import asyncio
+import os
+import socket
+import subprocess
+import sys
 
 from playwright.async_api import async_playwright, expect
 
 
 async def main() -> None:
-    async with async_playwright() as p:
-        browser = await p.chromium.launch()
-        context = await browser.new_context()
-        viewer = await context.new_page()
-        actor = await context.new_page()
-        await viewer.goto("http://127.0.0.1:8000/todos")
-        await actor.goto("http://127.0.0.1:8000/todos")
-        await actor.locator("input[type=text]").fill("milk")
-        await actor.get_by_role("button", name="Add").click()
-        await expect(viewer.get_by_role("button", name="milk")).to_be_visible()
-        await expect(actor.locator("input[type=text]")).to_have_value("")
-        await browser.close()
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    env = os.environ | {"STARIO_PORT": str(port), "PROJECT_DATA_DIR": "/tmp/browser-check"}
+    server = subprocess.Popen([sys.executable, "-m", "app.main"], env=env)
+    try:
+        await asyncio.sleep(1)
+        url = f"http://127.0.0.1:{port}/todos"
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            context = await browser.new_context()
+            viewer, actor = await context.new_page(), await context.new_page()
+            await viewer.goto(url)
+            await actor.goto(url)
+            await actor.locator("input[type=text]").fill("milk")
+            await actor.get_by_role("button", name="Add").click()
+            await expect(viewer.get_by_role("button", name="milk")).to_be_visible(timeout=5000)
+            await viewer.screenshot(path="/tmp/browser-check/todos.png")
+            await browser.close()
+    finally:
+        server.terminate()
+        server.wait(5)
 
 
-asyncio.run(main())
+asyncio.run(asyncio.wait_for(main(), 60))
 ```
 
 ```bash
 uv run --with playwright playwright install chromium
-uv run --with playwright python check_live.py
+uv run --with playwright python scripts/browser.py
 ```
 
-If Chromium will not start, `uv run --with playwright playwright install-deps chromium` installs its system libraries and needs root.
-
-One page is enough when the click and the result are on the same tab: `await expect(page.get_by_text("Public")).to_be_visible()`. For a dialog that must survive a repaint, open it on the viewer, change state from the actor, then expect the dialog to still be visible and the field to still hold what was typed. Delete `check_live.py` when it passes, unless the developer asks to keep a browser suite.
-
-Computer use — a session that clicks and looks — is for a judgment this script cannot make (spacing, contrast, overlap). It comes after the stream test, and after this script when the morph is in doubt.
+Point the URL and the locators at the page you changed. Wait for a visible result with `expect`, not with a sleep. Keep the script when the app has client JS that holds state; delete it otherwise.
 
 ## Remove a page
 

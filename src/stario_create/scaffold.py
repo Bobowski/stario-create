@@ -23,6 +23,7 @@ DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
 
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _THIS_APP = "\n## This app"
+_RULE_LIMIT = 16_000  # Devin and others cut an always-on rule file here
 _VENDOR = Path(__file__).resolve().parent / "vendor"
 
 
@@ -333,6 +334,8 @@ def stale_files(root: Path) -> list[str]:
     local_head = path.read_text().split(_THIS_APP)[0].strip() if path.exists() else ""
     if local_head != bundled_head:
         stale.append("AGENTS.md")
+    if path.exists() and (size := len(path.read_bytes())) > _RULE_LIMIT:
+        stale.append(f"AGENTS.md ({size} bytes; rule loaders cut at {_RULE_LIMIT})")
     if not (root / _CLOUD_ENV_JSON).is_file():
         stale.append(_CLOUD_ENV_JSON)
     install = root / _CLOUD_INSTALL

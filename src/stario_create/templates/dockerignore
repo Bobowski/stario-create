@@ -13,7 +13,7 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .hypothesis/
-.impeccable.md
+DESIGN.md
 data/
 frontend/
 tests/

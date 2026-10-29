@@ -4,6 +4,35 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.4.0
+
+### Changed
+
+- The guide has a `## Checks` section. An agent checks a change at the
+  cost that it needs: a `TestClient` test for logic, `just css` for a
+  style, and `just check` after a Python change and before a push. It
+  trusts Stario, Datastar, litewriter, and Tailwind. A browser is only
+  for client JS that holds state, a new layout, or a browser bug that no
+  test reproduces. When the user watches the app in the chat, the user
+  is the browser.
+- `stario-feature` replaces the Playwright section with "Browser check":
+  a script that starts its own server on a free port, stops it in
+  `finally`, and has a 60 s limit.
+- New skill `stario-datastar`: every `data.*`, `at.*`, and `SSE`
+  signature from the stario source, the Datastar Pro-only list, and how a
+  morph treats the page. Agents no longer read `site-packages` for a
+  signature; the guide says pyright checks each call.
+- `stario-feature`'s API card drops `data.persist()`. It is Datastar Pro
+  only, and the apps ship the free bundle.
+- Checks are looser: a new layout no longer needs a browser or a
+  screenshot. A browser is only for client JS that holds state, or a
+  browser bug that no test reproduces.
+- `sync --check` exits 1 when `AGENTS.md` is over 16,000 bytes, where
+  rule loaders cut an always-on file.
+- The guide drops repeated text to stay under the 12 KB budget: the
+  shutdown details (still in `stario-feature`, slow work) and three rows
+  of Common mistakes that repeat a rule above them.
+
 ## 5.3.4
 
 ### Fixed

@@ -12,6 +12,7 @@ Stario is a Python framework for server-rendered hypermedia apps. Handlers are a
 ## Skills (optional stacks)
 
 - [stario-feature](https://stario.dev/skills/stario-feature/SKILL.md): add, change, or remove one page, with complete files.
+- [stario-datastar](https://stario.dev/skills/stario-datastar/SKILL.md): every `data.*`, `at.*`, and `SSE` signature, and how a morph treats the page.
 - [stario-auth](https://stario.dev/skills/stario-auth/SKILL.md): a signed session cookie, `c.state["user"]`, a login page, protected pages.
 - [stario-litewriter](https://stario.dev/skills/stario-litewriter/SKILL.md): SQLite through `litewriter`; `watch` repaints the stream.
 - [stario-tailwind-daisyui](https://stario.dev/skills/stario-tailwind-daisyui/SKILL.md): Tailwind v4 and DaisyUI with the standalone binary, no Node.
