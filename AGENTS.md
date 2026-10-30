@@ -2,7 +2,9 @@
 
 How to build a Stario app, unless the developer asks for something else.
 
-Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs. Datastar: https://data-star.dev.
+Stario is Python hypermedia. A handler writes HTML. Datastar morphs it into the page. One open SSE response keeps a page live. State lives on the server. Docs: https://stario.dev/docs.
+
+`## This app` at the end holds the notes of this app, under 4 KB: what it is, its workflow, its commands, its traps. A deep note on one topic goes in its own file, named by a line such as "Read `EDITOR.md` before you change the editor."
 
 ## Which skill
 
@@ -34,83 +36,57 @@ tests/test_<page>.py
 ```
 
 - A page is one resource: a path and its query. One folder, named after the URL noun: `/rooms/{room_id}` → `room`. Delete the folder with the page.
-- A feature may import another feature's `urls.py` (links) and `data.py` (reads and writes), never its views or handlers.
-- `common/` holds what every page shares (the shell, the session).
+- A feature may import the `urls.py` and `data.py` of another feature, never its views or handlers.
 - JavaScript lives in `static/js/<name>.js` as `app.<name>`, never in a Python string (skill `stario-client`).
 
 ## Stario rules
 
 - Not ASGI: no Uvicorn, FastAPI, or response objects. `python -m app.main` runs `asyncio.run(serve(bootstrap))`.
-- `bootstrap(app: App, span: Span)` is an async generator with one `yield`: build shared objects, `span.attrs(await ASSETS.attach(app))`, register pages, `yield`, clean up. Keep `app.use("/", same_origin(), security_headers())`: cross-site commands get 403.
+- `bootstrap(app, span)` is an async generator with one `yield`: build shared objects, register pages, `yield`, clean up. Keep `app.use("/", same_origin(), security_headers())`.
 - A handler is `async def (c: Context, w: Writer) -> None`. It answers once: `w.html`, `w.text`, `w.empty`, `w.redirect`, or `SSE(w)`.
 - `Route("GET /rooms/{room_id}")` is one method on one path. `app.add(ROUTE, handler)`; `ROUTE.href(room_id, query={...})` builds the link. No `url_for`, no `app.get`.
-- `c.match.params`, `c.req.query`, `c.req.cookies`; `c.state` is filled by middleware `(inner: Handler) -> Handler`, added with `app.use("/prefix", mw)`.
 - A stream loop iterates `c.alive(source)`. Background work is `c.app.create_task(coro)`, never bare `asyncio.create_task`.
-- One process, one event loop. Shared state is an object built in `bootstrap`. No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
+- Shared state is an object built in `bootstrap`. No module-level state. No `os.environ` outside `config.py`. JSON goes through `stario.json`.
 
 ## A page is a resource
 
-The path names the resource. When a page has a sort, a filter, or paging, the query holds it: a `View` in `urls.py` (skill `stario-view`). The page `GET` and the stream read the same view, so a reload or a shared link shows the same thing. A page with nothing to choose has no `View`.
-
 Sort every user action:
 
-- **Go somewhere**, including a new view: `<a href>`.
-- **A result only this tab needs** while the user types (search as you type, a preview): a `GET` that reads the signals and answers `SSE(w).patch_elements(part)`, or a `POST` when the input is too long for a URL. It changes no state and keeps nothing.
+- **Go somewhere**, including a new sort, filter, or page: `<a href>`. The query holds the view (skill `stario-view`).
+- **A result only this tab needs** (search as you type, a preview): a `GET` that answers `SSE(w).patch_elements(part)`. It changes no state.
 - **Change state** (add, edit, delete, start a job): a command, `POST`.
 
 A page whose state cannot change while it is open is static: `w.html(render(...))`. A page on shared state that can change is live:
 
 ```text
-GET  /board        the first document
-GET  /board/live   an SSE stream that stays open and repaints the page
+GET  /board        the first document; its top element has data.init(at.get(BOARD_LIVE.href(), retry="always"))
+GET  /board/live   the stream: subscribe, send render(...), send it again after each change
 POST /board/...    a command: read, validate, reply, execute
 ```
 
-1. `GET /board` renders `data.init(at.get(BOARD_LIVE.href(), retry="always"))` on its top element.
-2. The stream subscribes, sends `render(...)`, then again after each change.
-3. The stream is the only thing that sends HTML. A command never answers with HTML: other tabs would not see it.
-
-The stream follows one source. Rows in SQLite: `db.watch(query)` (skill `stario-litewriter`), the common case. State in memory: `relay.subscribe(CHANGED, latest=True)` on the one `Relay[dict]`. A command that must tell its own tab something adds a tab id and `tab.<id>` (skill `stario-relay`). Subscribe before the first render. Subjects are constants.
+The stream is the only thing that sends HTML. A command never answers with HTML: other tabs would not see it. The stream follows one source: `db.watch(query)` for rows in SQLite (skill `stario-litewriter`), or `relay.subscribe(CHANGED, latest=True)` for state in memory (skill `stario-relay`).
 
 ## Commands: read, validate, reply, execute
 
 1. Read: `await read_signals(c.req)`, `c.match.params`, `c.state["user"]`.
 2. Validate. Bad, forged, or foreign input gets `w.text("why", status=400)` (or 403, 404) and `return`.
-3. Reply: `w.empty()` (204), `SSE(w).patch_signals(...)` to clear an input or show a message, or `SSE(w).navigate(url)`. A 303 to a Datastar request does not change the URL.
-4. Execute: change state. A stream on `db.watch` needs nothing more. A stream on a `Relay` needs `relay.publish(CHANGED, {})`.
+3. Reply: `w.empty()` (204), `SSE(w).patch_signals(...)`, or `SSE(w).navigate(url)`. A 303 to a Datastar request does not change the URL.
+4. Execute: `await db.write(...)`. State in memory changes, then `relay.publish(CHANGED, {})`.
 
-After the reply, `await db.write(...)`: the browser has its answer, and a failure reaches the span. `db.push` only a counter or a last-seen stamp. A domain outcome is `c.span.event(...)`; a domain failure is `c.span.fail(...)`.
+A message to one tab after the work goes to `tab.<id>` (skill `stario-relay`), never to shared state. Slow work is a job (skill `stario-jobs`). Blocking CPU work runs in `await asyncio.to_thread(fn, ...)`. A domain failure is `c.span.fail(...)`.
 
-The signals are the state of one tab. A command that tells its tab something after the work publishes `relay.publish(f"tab.{tab}", {"_error": text})` (skill `stario-relay`). A toast is the shell's `_toast` signal.
+## Render and signals
 
-The page stops empty input before it is sent: `required`, `maxlength`, `data.attr("disabled", ...)`. The server checks again.
-
-Slow work (a model call, a download) is a job that `c.app.create_task` runs in its own span (skill `stario-jobs`). Blocking CPU work (a password hash) runs in `await asyncio.to_thread(fn, ...)`. A delay or a client is a `Config` field.
-
-## Render from state
-
-- `render(...)` returns the whole document from state, and the view, the tab id, or the viewer when the page has them. It does not fetch. Datastar morphs only the changes.
-- The element with `data.init(...)` and `data.signals(...)` keeps its tag, `id`, and attribute text in every render.
-- Write the tree inline in `render`. A helper view exists for a block in a loop. `page()` is `@baked`: each parameter is a whole child or attribute.
-
-## Signals and UI state
-
-The server renders the state. Signals carry what the user types or picks, the tab id, and client-only state.
-
-- One `data.signals({...}, if_missing=True)` per page, on the element that opens the stream: a repaint keeps what was typed.
-- `data.bind("title")` ties an input to a signal. A leading `_` (`_error`) makes it local: Datastar does not send it.
-- One signal per field and one for the row being edited (`editing_id`), not one per row. Validate `editing_id` like any input.
-- The resource id is in the path, the view in the query, the user in a signed cookie (skill `stario-auth`). None is a signal.
-- A form that sends a command shows it is busy: `data.indicator("_saving")` on the `<form>`, and `data.attr("disabled", "$_saving")` on its button.
-- A `<dialog>` or `<details>` holds its own open state (`data.preserve_attr("open")`). A subtree the client owns gets `data.ignore_morph()`.
+- `render(...)` returns the whole document from state, and the view, the tab id, or the viewer. It does not fetch. Write the tree inline; a helper view is for a block in a loop.
+- The element with `data.init(...)` and `data.signals({...}, if_missing=True)` keeps its tag, `id`, and attributes in every render.
+- Signals carry what the user types or picks, the tab id, and client-only state. A leading `_` keeps a signal in the tab. The resource id is in the path, the view in the query, the user in a signed cookie (skill `stario-auth`).
+- One signal per field and one `editing_id`, not one signal per row.
+- A form shows it is busy: `data.indicator("_saving")` on the `<form>`, `data.attr("disabled", "$_saving")` on its button. `required` and `maxlength` stop empty input. The server checks again.
+- A `<dialog>` or `<details>` keeps `data.preserve_attr("open")`.
 
 ## Storage
 
-Choose with the developer. Do not add a database the app does not need.
-
-- No persistence: an object built in `bootstrap`.
-- SQLite: litewriter (skill `stario-litewriter`). A table is `id` plus `data` JSON. A field that a query filters, sorts, or keeps unique becomes a virtual column with an index. Add and drop virtual columns; do not migrate data. A real column is for a key: `id`, `user_id`.
-- Files go in `config.data_dir`: `$PROJECT_DATA_DIR` (Yard: `/data`, kept across deploys) or `./data`. The database is `config.db_path`. Tests set `PROJECT_DATA_DIR` to `tmp_path`.
+Choose with the developer. Do not add a database the app does not need. No persistence: an object built in `bootstrap`. SQLite: litewriter, a table of `id` plus `data` JSON (skill `stario-litewriter`). Files go in `config.data_dir`: `$PROJECT_DATA_DIR`, kept across deploys.
 
 ## Code shape
 
@@ -130,13 +106,11 @@ class BoardPage:
         w.html(render(list_tiles(self.db, view), view))
 ```
 
-Where code goes:
-
 - Logic that one route needs stays in that method.
 - A read or a write is a function in `data.py`: `list_*`, `get_*` (one or `None`), `add_*`, `set_*`, `remove_*`.
 - A rule with no URL that several pages use is a plain function in `app/<name>/`.
 
-Do not build: service classes, repositories, command or result objects, base pages, a `utils` module, a wrapper around `db`, a helper with one call site.
+Do not build: service classes, repositories, command objects, base pages, a `utils` module, a wrapper around `db`, a helper with one call site.
 
 Read input with these lines, not with a helper:
 
@@ -150,33 +124,15 @@ tab = str(signals.get("tab", ""))  # tab id: tab.isalnum() and len(tab) <= 32
 
 ## Tests
 
-Tests run the production `bootstrap` through `TestClient(bootstrap, request_timeout=5)`. Each page: the page loads; the view follows the query; a command repaints the stream; bad input gets 4xx. The next SSE event is the changed HTML; two streams are two tabs:
+Tests run the production `bootstrap` through `TestClient(bootstrap, request_timeout=5)`. Each page: it loads, a command repaints the stream, bad input gets 4xx. The next SSE event is the changed HTML; two streams are two tabs (skill `stario-feature`).
 
-```python
-async def test_paint_repaints_the_stream(client):
-    async with client.stream("GET", BOARD_LIVE.href(), timeout=2) as live:
-        events = live.iter_events()
-        assert 'id="board"' in (await anext(events))["data"]
-        r = await client.post(PAINT.href(1), json={"color": "#ff0000"})
-        assert r.status_code == 204
-        assert "#ff0000" in (await anext(events))["data"]
-```
-
-A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=`. A `navigate` reply contains `window.location`. The client keeps cookies.
+A `GET` sends signals in `params={"datastar": '{"q": "x"}'}`, a `POST` in `json=`.
 
 ## Checks
 
-Check what you changed, at the cost the change needs. A handler, a query, a stream: a `TestClient` test. A style: `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyright checks each call, and when the stream test shows the new HTML, the browser shows it. Read their source only when pyright or a test fails. After a Python change and before a push: `just check`; fix every failure.
+Check what you changed, at the cost the change needs. A handler, a query, or a stream gets a `TestClient` test. A style gets `just css`. Trust Stario, Datastar, litewriter, and Tailwind: pyright checks each call. Read their source only when pyright or a test fails. Run `just check` after a Python change and before a push.
 
-`tests/test_pages.py` checks each linked page for an action with no route, an undefined `$signal`, a stream that changes its element, and a `<dialog>` that closes. A browser is only for client JS that holds state, or a bug that the HTML does not show. Never for a page, a form, a live update, a login, or a style. No computer use. When the user watches the app, the user is the browser: say what to look at. When it does not work: `curl` their server, then a failing test (skill `stario-browser-check`).
-
-## Common mistakes
-
-| Avoid | Do |
-| --- | --- |
-| An error from the work written to shared state | signals to `tab.<id>` |
-| Sort or filter in a signal | the query, through `View` |
-| Handler factories, a service class | a page class with one method per route |
+`tests/test_pages.py` checks each linked page for an action with no route, an undefined `$signal`, a stream that changes its element, and a `<dialog>` that closes. A browser is only for client JS that holds state, or a bug that the HTML does not show. No computer use. When the user watches the app, the user is the browser: say what to look at. When it does not work: `curl` their server, then a failing test (skill `stario-browser-check`).
 
 ## Cursor Cloud specific instructions
 

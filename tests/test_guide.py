@@ -17,9 +17,9 @@ def _python_blocks(text: str) -> list[str]:
 
 @pytest.mark.parametrize("profile", PROFILES)
 def test_guide_fits_rule_loader_budget(profile):
-    # Rule loaders (Devin) cut always-on rules at 16 KB, and each app's
-    # `## This app` notes must still fit inside that limit.
-    assert len(guide_text(profile).encode()) <= 12_000
+    # Rule loaders (Devin) cut always-on rules at 16 KB. The guide stays at the
+    # skill size, so each app's `## This app` notes have room to grow.
+    assert len(guide_text(profile).encode()) <= 9_000
 
 
 @pytest.mark.parametrize("name", skill_names())
@@ -71,9 +71,12 @@ def test_guide_ends_with_this_app_section(profile):
 
 
 def test_guide_proves_a_live_update_from_the_stream():
-    text = guide_text()
-    assert "timeout=2" in text
-    assert "next SSE event" in text
+    assert "next SSE event" in guide_text()
+    assert "timeout=2" in skill_text("stario-feature")
+
+
+def test_guide_sets_a_budget_for_the_app_notes():
+    assert "under 4 KB" in guide_text()
 
 
 def test_guide_sends_only_what_a_person_must_see_to_a_browser():

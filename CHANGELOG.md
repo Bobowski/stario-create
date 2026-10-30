@@ -4,6 +4,22 @@ All notable changes to stario-create are documented in this file.
 
 The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 5.8.0
+
+### Changed
+
+- The guide is 8.9 KB, down from 12 KB, so each app has about 3 KB more
+  room under the 16 KB rule limit. The test example, the common-mistakes
+  table, and rules that a skill already holds moved out. The rules for
+  every task stay.
+- The guide sets a budget for `## This app`: under 4 KB. A deep note on one
+  topic goes in its own file, with a line that says when to read it.
+
+### Added
+
+- `sync` and `sync --check` print a warning when `## This app` is larger
+  than 4,000 bytes. The warning does not change the exit code.
+
 ## 5.7.0
 
 ### Added
