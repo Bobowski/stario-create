@@ -20,6 +20,7 @@ from stario_create.scaffold import (
     STARIO_REQ,
     ScaffoldError,
     check_name,
+    notes_warning,
     scaffold_files,
     stale_files,
     sync_cloud_env,
@@ -114,6 +115,8 @@ def cmd_add(args: argparse.Namespace) -> int:
 
 def cmd_sync(args: argparse.Namespace) -> int:
     root = Path.cwd()
+    if warning := notes_warning(root):
+        print(f"warning: {warning}", file=sys.stderr)
     if args.check:
         stale = stale_files(root)
         for item in stale:

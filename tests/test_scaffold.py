@@ -209,10 +209,21 @@ def test_cli_sync_check_detects_stale_skill(tmp_path: Path):
 def test_cli_sync_check_flags_a_guide_over_the_rule_limit(tmp_path: Path):
     subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
     guide = tmp_path / "AGENTS.md"
-    guide.write_text(guide.read_text() + "x" * 5_000 + "\n")
+    guide.write_text(guide.read_text() + "x" * 8_000 + "\n")
     out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
     assert out.returncode == 1
     assert "rule loaders cut at 16000" in out.stdout
+
+
+def test_cli_sync_warns_about_long_app_notes(tmp_path: Path):
+    subprocess.run([*CLI, "sync"], cwd=tmp_path, capture_output=True, text=True)
+    guide = tmp_path / "AGENTS.md"
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert "warning" not in out.stderr
+    guide.write_text(guide.read_text() + "note\n" * 1_000)
+    out = subprocess.run([*CLI, "sync", "--check"], cwd=tmp_path, capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout
+    assert "'## This app' is" in out.stderr
 
 
 def test_cli_sync_check_detects_stale_guide(tmp_path: Path):

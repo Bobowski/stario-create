@@ -24,6 +24,7 @@ DEV_REQS = ["ruff", "pyright", "pytest", "pytest-asyncio", "watchfiles"]
 NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _THIS_APP = "\n## This app"
 _RULE_LIMIT = 16_000  # Devin and others cut an always-on rule file here
+_NOTES_LIMIT = 4_000  # the `## This app` notes; past this, move a topic to its own file
 _VENDOR = Path(__file__).resolve().parent / "vendor"
 
 
@@ -324,6 +325,21 @@ def _check_recipe_runs_pytest(root: Path) -> bool:
         elif line.startswith("check:"):
             body = []
     return body is not None and any("pytest" in line for line in body)
+
+
+def notes_warning(root: Path) -> str | None:
+    """A warning when the `## This app` notes outgrow their budget, else None."""
+    path = root / "AGENTS.md"
+    if not path.is_file():
+        return None
+    _, sep, notes = path.read_text().partition(_THIS_APP)
+    size = len((sep + notes).encode())
+    if not sep or size <= _NOTES_LIMIT:
+        return None
+    return (
+        f"AGENTS.md: '## This app' is {size} bytes (budget {_NOTES_LIMIT}); "
+        "move a deep note on one topic to its own file and name it in one line"
+    )
 
 
 def stale_files(root: Path) -> list[str]:
